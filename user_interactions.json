@@ -1,7 +1,7 @@
 {
   "A01": {
-    "visited": true,
-    "resume_shared": true,
+    "visited": false,
+    "resume_shared": false,
     "apply_online": false,
     "comments": "TODO research about this company",
     "interested": false
@@ -9,22 +9,22 @@
   "A02": {
     "visited": false,
     "resume_shared": false,
-    "apply_online": true,
+    "apply_online": false,
     "comments": "Need to apply online by next Friday.",
-    "interested": true
+    "interested": false
   },
   "A03": {
     "visited": false,
     "resume_shared": false,
     "apply_online": false,
-    "interested": true,
+    "interested": false,
     "comments": ""
   },
   "A04": {
     "visited": false,
     "resume_shared": false,
     "apply_online": false,
-    "interested": true,
+    "interested": false,
     "comments": ""
   }
 }

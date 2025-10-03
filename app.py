@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from pypdf import PdfReader
 from PIL import Image
+import tempfile
 
 # Load environment variables and OpenAI
 try:
@@ -166,81 +167,6 @@ class CareerFairPDFReader:
             'interested': data.get('interested', False),
             'comments': data.get('comments', '')
         }
-    
-    def get_user_stats(self):
-        """Get summary statistics of user interactions"""
-        total_booths = len(self.user_data)
-        visited_count = sum(1 for data in self.user_data.values() if data.get('visited', False))
-        resume_shared_count = sum(1 for data in self.user_data.values() if data.get('resume_shared', False))
-        apply_online_count = sum(1 for data in self.user_data.values() if data.get('apply_online', False))
-        interested_count = sum(1 for data in self.user_data.values() if data.get('interested', False))
-        with_comments_count = sum(1 for data in self.user_data.values() if data.get('comments', '').strip())
-        
-        return {
-            'total_tracked_booths': total_booths,
-            'visited_booths': visited_count,
-            'resumes_shared': resume_shared_count,
-            'need_online_applications': apply_online_count,
-            'interested_booths': interested_count,
-            'booths_with_comments': with_comments_count
-        }
-    
-    def clear_user_data(self):
-        """Clear all user interaction data"""
-        self.user_data = {}
-        if self.user_data_file.exists():
-            self.user_data_file.unlink()
-    
-    def export_user_data(self, venue_name=None):
-        """Export user interaction data with company details"""
-        if venue_name:
-            venues = [venue_name]
-        else:
-            venues = ['SRC Hall A', 'SRC Hall B', 'SRC Hall C', 'EA Atrium',
-                     'SRC Hall A Day 2', 'SRC Hall B Day 2', 'SRC Hall C Day 2', 'EA Atrium Day 2']
-        
-        export_data = []
-        
-        for venue in venues:
-            companies = self.get_venue_companies(venue)
-            for company in companies:
-                booth_number = company['booth_number']
-                user_interaction = self.get_user_interaction(booth_number)
-                
-                export_data.append({
-                    'venue': venue,
-                    'booth_number': booth_number,
-                    'company_name': company['name'],
-                    'industry': company['industry'],
-                    'education_level': company['education_level'],
-                    'visited': user_interaction['visited'],
-                    'resume_shared': user_interaction['resume_shared'],
-                    'apply_online': user_interaction['apply_online'],
-                    'interested': user_interaction['interested'],
-                    'comments': user_interaction['comments']
-                })
-        
-        return export_data
-    
-    def mark_visited(self, booth_number, visited=True):
-        """Quick method to mark a booth as visited"""
-        return self.update_user_interaction(booth_number, visited=visited)
-    
-    def mark_resume_shared(self, booth_number, shared=True):
-        """Quick method to mark resume as shared"""
-        return self.update_user_interaction(booth_number, resume_shared=shared)
-    
-    def mark_apply_online(self, booth_number, apply=True):
-        """Quick method to mark for online application"""
-        return self.update_user_interaction(booth_number, apply_online=apply)
-    
-    def mark_interested(self, booth_number, interested=True):
-        """Quick method to mark a booth as interested"""
-        return self.update_user_interaction(booth_number, interested=interested)
-    
-    def add_comment(self, booth_number, comment):
-        """Quick method to add/update comment"""
-        return self.update_user_interaction(booth_number, comments=comment)
 
     def check_cache_completeness(self, venue_name=None):
         """Check what percentage of booth data is cached vs needs OpenAI calls"""
@@ -276,7 +202,6 @@ class CareerFairPDFReader:
             for page_num in pages:
                 try:
                     text = self.get_page_text(page_num)
-                    import re
                     booth_matches = re.findall(r'([A-Z]\d{2,3})', text)
                     booth_numbers.extend(booth_matches)
                 except Exception:
@@ -406,7 +331,6 @@ class CareerFairPDFReader:
             for page_num in pages:
                 try:
                     text = self.get_page_text(page_num)
-                    import re
                     booth_matches = re.findall(r'([A-Z]\d{2,3})', text)
                     booth_numbers.extend(booth_matches)
                 except Exception as e:
@@ -502,85 +426,6 @@ class CareerFairPDFReader:
         
         return total_stats
     
-    def retry_unknown_industries(self, venue_name):
-        """Retry OpenAI analysis for companies that currently have 'Unknown' industry"""
-        companies = self.get_venue_companies(venue_name)
-        
-        retried = 0
-        improved = 0
-        
-        for company in companies:
-            if company['industry'] == 'Unknown':
-                booth_number = company.get('booth_number')
-                company_name = company.get('name')
-                
-                if booth_number and company_name:
-                    # Force a new analysis by removing from cache
-                    page_num = self._find_booth_page(booth_number)
-                    if page_num:
-                        cache_key = f"industry_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}"
-                        if cache_key in self.vision_cache:
-                            del self.vision_cache[cache_key]
-                        
-                        # Get new result
-                        new_industry = self.determine_industry_with_openai(booth_number, company_name)
-                        retried += 1
-                        
-                        if new_industry != "Unknown":
-                            improved += 1
-                            print(f"✅ {booth_number}: {company_name[:30]} -> {new_industry}")
-                        else:
-                            print(f"❌ {booth_number}: {company_name[:30]} -> Still Unknown")
-        
-        if retried > 0:
-            self._save_cache()
-        
-        print(f"\nRetry summary: {retried} companies retried, {improved} improved")
-        return {'retried': retried, 'improved': improved}
-
-    def retry_unknown_company_names(self, venue_name):
-        """Retry OpenAI analysis for companies that currently have unclear names"""
-        companies = self.get_venue_companies(venue_name)
-        
-        retried = 0
-        improved = 0
-        
-        for company in companies:
-            company_name = company.get('name', '')
-            booth_number = company.get('booth_number')
-            
-            # Check if company name looks like it needs improvement
-            needs_retry = (
-                not company_name or 
-                company_name == 'Unknown Company' or
-                len(company_name) < 3 or
-                any(industry in company_name for industry in ['Financial Services', 'Engineering & Manufacturing', 'Banking & Finance'])
-            )
-            
-            if needs_retry and booth_number:
-                # Force a new analysis by removing from cache
-                page_num = self._find_booth_page(booth_number)
-                if page_num:
-                    cache_key = f"company_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}"
-                    if cache_key in self.vision_cache:
-                        del self.vision_cache[cache_key]
-                    
-                    # Get new result
-                    new_name = self.extract_company_name_with_openai(booth_number)
-                    retried += 1
-                    
-                    if new_name != "Unknown" and new_name != company_name:
-                        improved += 1
-                        print(f"✅ {booth_number}: '{company_name}' -> '{new_name}'")
-                    else:
-                        print(f"❌ {booth_number}: '{company_name}' -> No improvement")
-        
-        if retried > 0:
-            self._save_cache()
-        
-        print(f"\nCompany name retry summary: {retried} companies retried, {improved} improved")
-        return {'retried': retried, 'improved': improved}
-    
     def _load_pdf(self):
         """Load the PDF file"""
         try:
@@ -609,8 +454,6 @@ class CareerFairPDFReader:
             text = self.get_page_text(page_number)
             lines = [line.strip() for line in text.split('\n') if line.strip()]
             companies = []
-            
-            import re
             
             # Simplified parsing - just extract booth numbers and company names
             booth_data = {}
@@ -748,6 +591,155 @@ class CareerFairPDFReader:
         
         return all_companies
     
+    def analyze_resume_match(self, resume_content, user_preferences=""):
+        """Analyze resume and user preferences to find matching companies"""
+        if not OPENAI_AVAILABLE or not openai_client:
+            return []
+        
+        try:
+            # Check cache completeness first
+            cache_stats = self.check_cache_completeness()
+            if cache_stats['fully_cached_pct'] < 80:
+                print(f"⚠️  Warning: Only {cache_stats['fully_cached_pct']}% of company data is cached.")
+                print(f"   For faster resume analysis, consider running: preload_all_openai_data()")
+                print(f"   This will avoid rate limits during resume matching.")
+            
+            # Get all companies from all venues using cached data only to avoid API calls
+            all_companies = []
+            venues = ['SRC Hall A', 'SRC Hall B', 'SRC Hall C', 'EA Atrium',
+                     'SRC Hall A Day 2', 'SRC Hall B Day 2', 'SRC Hall C Day 2', 'EA Atrium Day 2']
+            
+            for venue in venues:
+                companies = self._get_cached_venue_companies(venue)
+                for company in companies:
+                    company['venue'] = venue
+                    # Only include companies with meaningful cached data
+                    if (company['name'] != "Unknown Company" and 
+                        company['industry'] != "Unknown" and 
+                        company['education_level'] != "Unknown"):
+                        all_companies.append(company)
+            
+            # Create company summary for OpenAI analysis (limit to improve speed)
+            company_summaries = []
+            for i, company in enumerate(all_companies[:150]):  # Limit to 150 companies max
+                summary = f"{i+1}. {company['name']} (Booth {company['booth_number']}) - {company['industry']} - {company['education_level']} - {company['venue']}"
+                company_summaries.append(summary)
+            
+            companies_text = "\n".join(company_summaries)
+            
+            print(f"📊 Analyzing {len(company_summaries)} companies for resume match...")
+            
+            # Create optimized prompt for OpenAI analysis
+            prompt = f"""You are a career counselor helping a student find the best company matches at a career fair.
+
+STUDENT PROFILE:
+{resume_content[:2500]}  
+
+USER PREFERENCES:
+{user_preferences}
+
+AVAILABLE COMPANIES:
+{companies_text}
+
+Analyze the profile and preferences, then recommend the TOP 8 companies that would be the best matches. Consider industry alignment, education requirements, skills relevance, and career goals.
+
+Respond ONLY with valid JSON:
+{{
+  "matches": [
+    {{
+      "company_name": "Company Name",
+      "booth_number": "A01", 
+      "venue": "SRC Hall A",
+      "match_percentage": 85,
+      "explanation": "Brief explanation of match",
+      "alignment_factors": ["Factor 1", "Factor 2"]
+    }}
+  ]
+}}"""
+
+            # Call OpenAI for analysis with optimized settings
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",  # Use mini for faster/cheaper analysis
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                max_tokens=1500,  # Reduced tokens for faster response
+                temperature=0.2,   # Lower temperature for consistency
+                timeout=20         # Reduced timeout
+            )
+            
+            # Parse response
+            response_text = response.choices[0].message.content.strip()
+            
+            # Try to extract JSON from response
+            try:
+                # Find JSON in the response
+                json_start = response_text.find('{')
+                json_end = response_text.rfind('}') + 1
+                if json_start != -1 and json_end != -1:
+                    json_text = response_text[json_start:json_end]
+                    result = json.loads(json_text)
+                    
+                    # Enhance matches with full company data
+                    enhanced_matches = []
+                    for match in result.get('matches', []):
+                        # Find the full company data
+                        for company in all_companies:
+                            if (company['name'] == match['company_name'] or 
+                                company['booth_number'] == match['booth_number']):
+                                enhanced_match = {
+                                    **company,
+                                    'match_percentage': match.get('match_percentage', 0),
+                                    'explanation': match.get('explanation', ''),
+                                    'alignment_factors': match.get('alignment_factors', [])
+                                }
+                                enhanced_matches.append(enhanced_match)
+                                break
+                    
+                    return enhanced_matches
+                
+            except json.JSONDecodeError:
+                pass
+            
+            # Fallback: return empty list if parsing fails
+            return []
+            
+        except Exception as e:
+            error_msg = str(e)
+            if "rate_limit_exceeded" in error_msg or "429" in error_msg:
+                print(f"❌ Rate limit exceeded. Please wait and try again, or preload cache first.")
+                print(f"   Run: reader.preload_all_openai_data() to avoid future rate limits.")
+            else:
+                print(f"Error analyzing resume match: {e}")
+            return []
+    
+    def extract_text_from_pdf(self, pdf_file):
+        """Extract text content from uploaded PDF resume"""
+        try:
+            # Save uploaded file temporarily
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+                temp_file.write(pdf_file.read())
+                temp_path = temp_file.name
+            
+            # Extract text using PyPDF
+            reader = PdfReader(temp_path)
+            text_content = ""
+            
+            for page in reader.pages:
+                text_content += page.extract_text() + "\n"
+            
+            # Clean up temp file
+            os.unlink(temp_path)
+            
+            return text_content.strip()
+            
+        except Exception as e:
+            print(f"Error extracting text from PDF: {e}")
+            return ""
+
     def extract_company_name_with_openai(self, booth_number, venue_context=None):
         """Use OpenAI vision to extract clean company name from PDF layout"""
         
@@ -1242,3 +1234,117 @@ What color is the briefcase at booth {booth_number}? Respond with exactly one wo
             
         except Exception:
             return None
+    
+    def _get_cached_venue_companies(self, venue_name):
+        """Get companies for a specific venue using only cached data (no OpenAI calls)"""
+        venue_page_mappings = {
+            # Day 1 venues
+            'SRC Hall A': [11, 12],   
+            'SRC Hall B': [14, 15],   
+            'SRC Hall C': [17, 18],   
+            'EA Atrium': [20, 21],    
+            
+            # Day 2 venues
+            'SRC Hall A Day 2': [23, 24],   
+            'SRC Hall B Day 2': [26, 27],   
+            'SRC Hall C Day 2': [29, 30],   
+            'EA Atrium Day 2': [32, 33, 34] 
+        }
+        
+        pages = venue_page_mappings.get(venue_name, [])
+        all_companies = []
+        
+        for page_num in pages:
+            try:
+                companies = self._parse_company_table_cached_only(page_num, venue_name)
+                all_companies.extend(companies)
+            except Exception as e:
+                print(f"Warning: Could not parse companies from page {page_num}: {str(e)}")
+                continue
+        
+        return all_companies
+    
+    def _parse_company_table_cached_only(self, page_number, venue_context=None):
+        """Parse company information using only cached OpenAI data (no new API calls)"""
+        try:
+            text = self.get_page_text(page_number)
+            lines = [line.strip() for line in text.split('\n') if line.strip()]
+            companies = []
+            
+            # Extract booth numbers from the page
+            booth_numbers = []
+            for line in lines:
+                booth_matches = re.findall(r'([A-Z]\d{2,3})', line)
+                booth_numbers.extend(booth_matches)
+            
+            booth_numbers = list(set(booth_numbers))
+            
+            # For each booth, get cached data only
+            for booth_number in booth_numbers:
+                page_num = self._find_booth_page(booth_number, venue_context)
+                if not page_num:
+                    continue
+                
+                # Get cached company name
+                cache_suffix = "_day2" if venue_context and "Day 2" in venue_context else ""
+                company_cache_key = f"company_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}{cache_suffix}"
+                company_name = self.vision_cache.get(company_cache_key, "Unknown Company")
+                
+                # Get cached industry
+                industry_cache_key = f"industry_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}{cache_suffix}"
+                industry = self.vision_cache.get(industry_cache_key, "Unknown")
+                
+                # Get cached education level
+                education_cache_key = self._get_cache_key(booth_number, page_num) + cache_suffix
+                education_level = self.vision_cache.get(education_cache_key, "Unknown")
+                
+                # Get user interaction data
+                user_interaction = self.get_user_interaction(booth_number)
+                
+                companies.append({
+                    'name': company_name,
+                    'booth_number': booth_number,
+                    'education_level': education_level,
+                    'industry': industry,
+                    'visited': user_interaction['visited'],
+                    'resume_shared': user_interaction['resume_shared'],
+                    'apply_online': user_interaction['apply_online'],
+                    'interested': user_interaction['interested'],
+                    'comments': user_interaction['comments'],
+                    'raw_text': f"Booth {booth_number}"  # Minimal placeholder
+                })
+            
+            return companies
+        except Exception as e:
+            print(f"Error parsing companies from page {page_number}: {str(e)}")
+            return []
+        
+    def prepare_for_resume_analysis(self):
+        """Prepare the system for fast resume analysis by ensuring cache is complete"""
+        print("🔍 Checking cache status for resume analysis...")
+        
+        cache_stats = self.check_cache_completeness()
+        print(f"📊 Cache Status:")
+        print(f"   • Total booths: {cache_stats['total_booths']}")
+        print(f"   • Fully cached: {cache_stats['fully_cached']} ({cache_stats['fully_cached_pct']}%)")
+        print(f"   • Education cached: {cache_stats['education_cached']} ({cache_stats['education_cached_pct']}%)")
+        print(f"   • Company names cached: {cache_stats['company_cached']} ({cache_stats['company_cached_pct']}%)")
+        print(f"   • Industries cached: {cache_stats['industry_cached']} ({cache_stats['industry_cached_pct']}%)")
+        
+        if cache_stats['fully_cached_pct'] < 80:
+            print(f"\n⚠️  Only {cache_stats['fully_cached_pct']}% of data is cached.")
+            print(f"   This may cause rate limits during resume analysis.")
+            print(f"   Recommend running: preload_all_openai_data()")
+            
+            response = input("Would you like to preload the cache now? (y/n): ")
+            if response.lower().startswith('y'):
+                print("\n🚀 Preloading all company data...")
+                stats = self.preload_all_openai_data()
+                print(f"✅ Preload complete! Made {stats['education_api_calls'] + stats['company_api_calls'] + stats['industry_api_calls']} API calls.")
+                print(f"   Resume analysis will now be much faster! 🎉")
+            else:
+                print("💡 You can run preload_all_openai_data() later to improve performance.")
+        else:
+            print(f"✅ Cache is {cache_stats['fully_cached_pct']}% complete - ready for fast resume analysis!")
+        
+        return cache_stats
