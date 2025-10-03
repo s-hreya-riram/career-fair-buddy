@@ -1,0 +1,30 @@
+{
+  "A01": {
+    "visited": true,
+    "resume_shared": true,
+    "apply_online": false,
+    "comments": "TODO research about this company",
+    "interested": false
+  },
+  "A02": {
+    "visited": false,
+    "resume_shared": false,
+    "apply_online": true,
+    "comments": "Need to apply online by next Friday.",
+    "interested": true
+  },
+  "A03": {
+    "visited": false,
+    "resume_shared": false,
+    "apply_online": false,
+    "interested": true,
+    "comments": ""
+  },
+  "A04": {
+    "visited": false,
+    "resume_shared": false,
+    "apply_online": false,
+    "interested": true,
+    "comments": ""
+  }
+}
