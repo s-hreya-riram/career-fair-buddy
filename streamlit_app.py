@@ -447,10 +447,37 @@ class CareerFairApp:
         """Display company listings for a specific venue with education level filtering"""
         st.subheader("🏢 Companies at this Venue")
         
-        # Add loading status indicator
+        # Add loading status indicator with timeout
         with st.spinner(f"Loading companies for {venue_name}..."):
-            # Get company data for this venue
-            companies = self.pdf_reader.get_venue_companies(venue_name)
+            try:
+                # First try to use cached data only (faster, no API calls)
+                if hasattr(self.pdf_reader, '_get_cached_venue_companies'):
+                    st.info("🚀 Using cached data for faster loading...")
+                    companies = self.pdf_reader._get_cached_venue_companies(venue_name)
+                else:
+                    # Fallback to full method with timeout
+                    import signal
+                    
+                    def timeout_handler(signum, frame):
+                        raise TimeoutError("Company loading timed out")
+                    
+                    # Set 30-second timeout
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(30)
+                    
+                    # Get company data for this venue
+                    companies = self.pdf_reader.get_venue_companies(venue_name)
+                    
+                    # Clear the timeout
+                    signal.alarm(0)
+                
+            except TimeoutError:
+                st.error("⏰ Loading timed out after 30 seconds. This might be due to OpenAI API rate limits.")
+                st.info("💡 Try refreshing the page or check your internet connection.")
+                companies = []
+            except Exception as e:
+                st.error(f"❌ Error loading companies: {str(e)}")
+                companies = []
         
         # Add debug information about loading status
         with st.expander("🔧 Loading Debug Info (click to expand)"):
