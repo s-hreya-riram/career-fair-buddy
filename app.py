@@ -600,6 +600,18 @@ class CareerFairPDFReader:
                         'raw_text': data.get('raw_text', '')
                     })
             
+            # Sort companies by booth number (A01, A02, A03, etc.)
+            def booth_sort_key(company):
+                booth = company['booth_number']
+                # Extract letter and number parts for proper sorting
+                try:
+                    letter = booth[0]  # A, B, C, D
+                    number = int(booth[1:])  # 01, 02, 03, etc.
+                    return (letter, number)
+                except:
+                    return (booth, 0)  # Fallback for malformed booth numbers
+            
+            companies.sort(key=booth_sort_key)
             return companies
         except Exception as e:
             print(f"Error parsing companies from page {page_number}: {str(e)}")
@@ -1393,6 +1405,18 @@ What color is the briefcase at booth {booth_number}? Respond with exactly one wo
                     'raw_text': f"Booth {booth_number}"  # Minimal placeholder
                 })
             
+            # Sort companies by booth number (A01, A02, A03, etc.)
+            def booth_sort_key(company):
+                booth = company['booth_number']
+                # Extract letter and number parts for proper sorting
+                try:
+                    letter = booth[0]  # A, B, C, D
+                    number = int(booth[1:])  # 01, 02, 03, etc.
+                    return (letter, number)
+                except:
+                    return (booth, 0)  # Fallback for malformed booth numbers
+            
+            companies.sort(key=booth_sort_key)
             return companies
         except Exception as e:
             print(f"Error parsing companies from page {page_number}: {str(e)}")
