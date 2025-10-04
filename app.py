@@ -776,8 +776,11 @@ Respond ONLY with valid JSON:
         except Exception:
             return "Unknown"
 
-    def _analyze_company_name_with_openai_vision(self, booth_number, page_num, max_retries=3):
-        """Use OpenAI vision to analyze company name from PDF layout"""
+    def _analyze_company_name_with_openai_vision(self, booth_number, page_num, max_retries=5):
+        """Use OpenAI vision to analyze company name from PDF layout with exponential backoff"""
+        
+        import time
+        import random
         
         for attempt in range(max_retries):
             try:
@@ -785,7 +788,8 @@ Respond ONLY with valid JSON:
                 image_data = self._convert_pdf_page_to_image(page_num)
                 if not image_data:
                     if attempt < max_retries - 1:
-                        time.sleep(1)
+                        wait_time = (2 ** attempt) + random.uniform(0, 1)
+                        time.sleep(wait_time)
                         continue
                     return "Unknown"
                 
@@ -842,10 +846,12 @@ Respond with ONLY the clean company name, nothing else."""
                     'Transport, Maritime', 'Healthcare'
                 ]
                 
-                # If the response is just an industry keyword, it's not a valid company name
+                # If the response is just an industry keyword, retry with exponential backoff
                 if company_name in industry_keywords:
                     if attempt < max_retries - 1:
-                        time.sleep(2 ** attempt)
+                        wait_time = (2 ** attempt) + random.uniform(0, 1)
+                        print(f"Got industry keyword instead of company name for booth {booth_number}, retrying in {wait_time:.1f}s")
+                        time.sleep(wait_time)
                         continue
                     return "Unknown"
                 
@@ -853,38 +859,54 @@ Respond with ONLY the clean company name, nothing else."""
                 if len(company_name) > 2 and company_name.lower() not in ['unknown', 'n/a', 'none']:
                     return company_name
                 
-                # If no valid company name found on last attempt, return Unknown
-                if attempt == max_retries - 1:
+                # If no valid company name found, retry with exponential backoff
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"No valid company name found for booth {booth_number}, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"Failed to extract company name for booth {booth_number} after {max_retries} attempts")
                     return "Unknown"
-                
-                # Otherwise retry
-                time.sleep(2 ** attempt)
-                continue
                 
             except Exception as e:
                 error_msg = str(e)
                 
-                # Handle rate limiting with exponential backoff
+                # Handle rate limiting with longer exponential backoff
                 if "rate_limit_exceeded" in error_msg or "429" in error_msg:
-                    wait_time = (2 ** attempt) * 2
+                    wait_time = (2 ** attempt) * 5 + random.uniform(0, 5)
+                    print(f"Rate limit hit for company extraction booth {booth_number}, waiting {wait_time:.1f}s")
                     time.sleep(wait_time)
                     continue
                 
-                # Handle timeout errors
+                # Handle timeout errors with moderate backoff
                 if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
-                    wait_time = (2 ** attempt) * 1
+                    wait_time = (2 ** attempt) * 2 + random.uniform(0, 2)
+                    print(f"Timeout for company extraction booth {booth_number}, retrying in {wait_time:.1f}s")
                     time.sleep(wait_time)
                     continue
                 
-                # For other errors, wait and retry if not the last attempt
-                if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)
+                # Handle other API errors with standard backoff
+                if "api" in error_msg.lower() or "openai" in error_msg.lower():
+                    wait_time = (2 ** attempt) + random.uniform(0, 2)
+                    print(f"API error for company extraction booth {booth_number}: {error_msg}. Retrying in {wait_time:.1f}s")
+                    time.sleep(wait_time)
                     continue
+                
+                # For unexpected errors, retry with minimal backoff on early attempts
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"Unexpected error for company extraction booth {booth_number}: {error_msg}. Retrying in {wait_time:.1f}s")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"Final attempt failed for company extraction booth {booth_number}: {error_msg}")
         
+        print(f"All retry attempts exhausted for company extraction booth {booth_number}")
         return "Unknown"
 
     def determine_industry_with_openai(self, booth_number, company_name, venue_context=None):
-        """Use OpenAI vision to determine industry from PDF table layout"""
+        """Use OpenAI vision to determine industry from PDF table layout with retry logic"""
         
         if not OPENAI_AVAILABLE or not openai_client:
             return "Unknown"
@@ -898,32 +920,28 @@ Respond with ONLY the clean company name, nothing else."""
             # Check cache first (use industry-specific cache key) - include venue context for Day 2
             cache_suffix = "_day2" if venue_context and "Day 2" in venue_context else ""
             cache_key = f"industry_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}{cache_suffix}"
+            
             if cache_key in self.vision_cache:
                 cached_result = self.vision_cache[cache_key]
-                # Only return cached result if it's not "Unknown" - retry "Unknown" results
-                if cached_result != "Unknown":
-                    return cached_result
-                # If cached result is "Unknown", we'll retry below
+                return cached_result  # Return cached result, even if "Unknown"
             
-            # Analyze with OpenAI vision
+            # Analyze with OpenAI vision using retry logic
             industry = self._analyze_industry_with_openai_vision(booth_number, company_name, page_num)
             
-            if industry:
-                # Cache the result (even if it's "Unknown" to avoid infinite retries)
-                self.vision_cache[cache_key] = industry
-                self._save_cache()
-                return industry
-            else:
-                # Cache "Unknown" result to avoid retrying indefinitely
-                self.vision_cache[cache_key] = "Unknown"
-                self._save_cache()
-                return "Unknown"
+            # Cache the result (even if it's "Unknown" to avoid future API calls)
+            self.vision_cache[cache_key] = industry
+            self._save_cache()
+            return industry
                 
-        except Exception:
+        except Exception as e:
+            print(f"Error determining industry for booth {booth_number}: {str(e)}")
             return "Unknown"
     
-    def _analyze_industry_with_openai_vision(self, booth_number, company_name, page_num, max_retries=3):
-        """Use OpenAI vision to analyze industry information from PDF layout"""
+    def _analyze_industry_with_openai_vision(self, booth_number, company_name, page_num, max_retries=5):
+        """Use OpenAI vision to analyze industry information from PDF layout with exponential backoff"""
+        
+        import time
+        import random
         
         for attempt in range(max_retries):
             try:
@@ -931,7 +949,9 @@ Respond with ONLY the clean company name, nothing else."""
                 image_data = self._convert_pdf_page_to_image(page_num)
                 if not image_data:
                     if attempt < max_retries - 1:
-                        time.sleep(1)
+                        # Wait with exponential backoff for PDF conversion issues
+                        wait_time = (2 ** attempt) + random.uniform(0, 1)
+                        time.sleep(wait_time)
                         continue
                     return "Unknown"
                 
@@ -1012,34 +1032,50 @@ Look carefully at the layout around booth {booth_number} and respond with ONLY t
                     if valid_industry.lower() in industry.lower():
                         return valid_industry
                 
-                # If no match found on last attempt, return Unknown
-                if attempt == max_retries - 1:
+                # If no match found, retry with exponential backoff (unless it's the last attempt)
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"Retrying industry extraction for booth {booth_number} in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"Failed to extract valid industry for booth {booth_number} after {max_retries} attempts")
                     return "Unknown"
-                
-                # Otherwise retry
-                time.sleep(2 ** attempt)  # Exponential backoff
-                continue
                 
             except Exception as e:
                 error_msg = str(e)
                 
-                # Handle rate limiting with exponential backoff
+                # Handle rate limiting with longer exponential backoff
                 if "rate_limit_exceeded" in error_msg or "429" in error_msg:
-                    wait_time = (2 ** attempt) * 2  # 2, 4, 8 seconds
+                    wait_time = (2 ** attempt) * 5 + random.uniform(0, 5)  # 5, 10, 20, 40, 80 seconds + jitter
+                    print(f"Rate limit hit for booth {booth_number}, waiting {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})")
                     time.sleep(wait_time)
                     continue
                 
-                # Handle timeout errors
+                # Handle timeout errors with moderate backoff
                 if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
-                    wait_time = (2 ** attempt) * 1  # 1, 2, 4 seconds
+                    wait_time = (2 ** attempt) * 2 + random.uniform(0, 2)  # 2, 4, 8, 16, 32 seconds + jitter
+                    print(f"Timeout for booth {booth_number}, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})")
                     time.sleep(wait_time)
                     continue
                 
-                # For other errors, wait and retry if not the last attempt
-                if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)
+                # Handle other API errors with standard backoff
+                if "api" in error_msg.lower() or "openai" in error_msg.lower():
+                    wait_time = (2 ** attempt) + random.uniform(0, 2)
+                    print(f"API error for booth {booth_number}: {error_msg}. Retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
                     continue
+                
+                # For unexpected errors, retry with minimal backoff on early attempts
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"Unexpected error for booth {booth_number}: {error_msg}. Retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"Final attempt failed for booth {booth_number}: {error_msg}")
         
+        print(f"All retry attempts exhausted for booth {booth_number}")
         return "Unknown"
     
     def determine_education_level(self, raw_line, company_name, booth_number=None, venue_context=None):
