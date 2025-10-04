@@ -68,18 +68,19 @@ print(f"   - Current working directory: {os.getcwd()}")
 print(f"   - Environment variables containing 'OPENAI': {[k for k in os.environ.keys() if 'OPENAI' in k.upper()]}")
 
 class CareerFairPDFReader:
-    def __init__(self, pdf_path):
-        """Initialize the PDF reader with the path to the career fair PDF"""
+    def __init__(self, pdf_path, user_id=None):
+        """Initialize the PDF reader with the path to the career fair PDF and optional user_id"""
         self.pdf_path = Path(pdf_path)
         self.reader = None
         self.total_pages = 0
+        self.user_id = user_id or "default"  # Use provided user_id or default
         
         # Initialize OpenAI vision cache
         self.cache_file = Path("openai_vision_cache.json")
         self.vision_cache = self._load_cache()
         
-        # Initialize user data for tracking booth interactions
-        self.user_data_file = Path("user_interactions.json")
+        # Initialize user data for tracking booth interactions (per user)
+        self.user_data_file = Path(f"user_interactions_{self.user_id}.json")
         self.user_data = self._load_user_data()
         
         if not self.pdf_path.exists():

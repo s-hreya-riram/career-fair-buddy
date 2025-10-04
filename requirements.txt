@@ -1,3 +1,6 @@
+# Core Dependencies
+python>=3.8
+
 # Basic data handling
 pandas>=2.0.0
 numpy>=1.24.0
@@ -8,12 +11,19 @@ reportlab>=4.0.0
 pypdf>=3.0.0
 PyMuPDF>=1.23.0
 
-# Web App
+# Web App Framework
 streamlit>=1.28.0
 
 # Image processing for PDF pages
 Pillow>=10.0.0 
 
-# OpenAI for vision-based classification
+# AI/ML Libraries
 openai>=1.0.0
-python-dotenv>=1.0.0 
+
+# Configuration and Environment
+python-dotenv>=1.0.0
+
+# Optional: Development tools
+# black>=23.0.0  # Code formatting
+# pytest>=7.0.0  # Testing
+# mypy>=1.0.0    # Type checking 

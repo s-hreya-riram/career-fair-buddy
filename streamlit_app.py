@@ -205,7 +205,191 @@ class CareerFairApp:
         """Initialize the Career Fair Streamlit App"""
         self.pdf_path = "data/nus-career-fest-2025-student-event-guide-ay2526-sem-1.pdf"
         self.pdf_reader = None
+        self.user_id = self.setup_user_id()
         self.init_pdf_reader()
+    
+    def setup_user_id(self):
+        """Setup user ID system for multi-user support"""
+        import uuid
+        
+        # Check if user already has an ID in session state
+        if 'user_id' not in st.session_state:
+            st.session_state.user_id = None
+        
+        # User ID input section
+        with st.sidebar:
+            st.markdown("---")
+            st.subheader("👤 Your Profile")
+            
+            # Show current user ID if exists
+            if st.session_state.user_id:
+                st.success(f"🔑 Your ID: **{st.session_state.user_id}**")
+                st.caption("💾 Save this ID to access your data from any device")
+                
+                # Option to change user ID
+                if st.button("🔄 Change User ID"):
+                    st.session_state.user_id = None
+                    st.rerun()
+            else:
+                # New user setup
+                st.info("🆕 Set up your profile to track your career fair progress")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if st.button("🎲 Generate New ID", help="Get a unique 8-character ID"):
+                        new_id = str(uuid.uuid4())[:8].upper()
+                        st.session_state.user_id = new_id
+                        st.success(f"🎉 Your new ID: **{new_id}**")
+                        st.caption("💾 Save this ID to access your data from other devices!")
+                        st.rerun()
+                
+                with col2:
+                    # Manual ID entry
+                    manual_id = st.text_input(
+                        "🔑 Enter Existing ID", 
+                        placeholder="A1B2C3D4",
+                        max_chars=8,
+                        help="Enter your 8-character ID from another device"
+                    )
+                    if manual_id and len(manual_id.strip()) >= 4:
+                        if st.button("✅ Use This ID"):
+                            st.session_state.user_id = manual_id.strip().upper()
+                            st.success(f"✅ Using ID: **{st.session_state.user_id}**")
+                            st.rerun()
+            
+            # User data management (only show if user has an ID)
+            if st.session_state.user_id:
+                st.markdown("---")
+                st.caption("📊 **Data Management**")
+                
+                # Show user statistics
+                try:
+                    if hasattr(self, 'pdf_reader') and self.pdf_reader:
+                        user_data = self.pdf_reader.user_data
+                        visited_count = sum(1 for data in user_data.values() if data.get('visited', False))
+                        interested_count = sum(1 for data in user_data.values() if data.get('interested', False))
+                        total_companies = len(user_data)
+                        
+                        if total_companies > 0:
+                            st.metric("📍 Companies Visited", visited_count)
+                            st.metric("❤️ Companies Interested", interested_count)
+                        else:
+                            st.caption("No activity yet - start exploring companies!")
+                except:
+                    pass
+                
+                # Export data option
+                if st.button("📥 Export My Data", help="Download your career fair progress as CSV"):
+                    self.export_user_data()
+            
+            # System metrics (show for all users)
+            st.markdown("---")
+            st.caption("📊 **System Stats**")
+            try:
+                metrics = self.get_system_metrics()
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("👥 Active Users", metrics['total_users'])
+                with col2:
+                    st.metric("💾 Storage", f"{metrics['storage_mb']:.1f}MB")
+                
+                if metrics['total_users'] > 20000:
+                    st.warning("⚠️ High user load - performance may be affected")
+                
+            except Exception as e:
+                st.caption("Stats unavailable")
+        
+        return st.session_state.user_id or "GUEST"
+    
+    def get_system_metrics(self):
+        """Get system usage metrics for monitoring scaling"""
+        from pathlib import Path
+        
+        try:
+            # Count user files
+            user_files = list(Path('.').glob('user_interactions_*.json'))
+            total_users = len(user_files)
+            
+            # Calculate total storage used by user files
+            total_size = sum(f.stat().st_size for f in user_files if f.exists())
+            storage_mb = total_size / (1024 * 1024)  # Convert to MB
+            
+            # Get active users (files modified in last 24 hours)
+            from datetime import datetime, timedelta
+            cutoff_time = datetime.now().timestamp() - (24 * 60 * 60)  # 24 hours ago
+            active_users = sum(1 for f in user_files if f.stat().st_mtime > cutoff_time)
+            
+            return {
+                'total_users': total_users,
+                'active_users_24h': active_users,
+                'storage_mb': storage_mb,
+                'storage_warning': storage_mb > 400  # Warn at 400MB
+            }
+            
+        except Exception as e:
+            return {
+                'total_users': 0,
+                'active_users_24h': 0,
+                'storage_mb': 0,
+                'storage_warning': False,
+                'error': str(e)
+            }
+    
+    def export_user_data(self):
+        """Export user's career fair data as CSV"""
+        try:
+            if not hasattr(self, 'pdf_reader') or not self.pdf_reader:
+                st.error("PDF reader not available for data export")
+                return
+            
+            import pandas as pd
+            from datetime import datetime
+            
+            # Get user's interaction data
+            user_data = self.pdf_reader.user_data
+            
+            if not user_data:
+                st.warning("No data to export - start tracking companies first!")
+                return
+            
+            # Convert to exportable format
+            export_data = []
+            for booth_number, data in user_data.items():
+                export_data.append({
+                    'Booth_Number': booth_number,
+                    'Visited': data.get('visited', False),
+                    'Interested': data.get('interested', False),
+                    'Resume_Shared': data.get('resume_shared', False),
+                    'Apply_Online': data.get('apply_online', False),
+                    'Comments': data.get('comments', '')
+                })
+            
+            # Create DataFrame
+            df = pd.DataFrame(export_data)
+            
+            # Convert to CSV
+            csv_data = df.to_csv(index=False)
+            
+            # Generate filename with user ID and timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+            filename = f"career_fair_progress_{self.user_id}_{timestamp}.csv"
+            
+            # Provide download button
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv_data,
+                file_name=filename,
+                mime="text/csv",
+                help=f"Download your career fair progress for {self.user_id}"
+            )
+            
+            st.success(f"✅ Ready to download! File: {filename}")
+            
+        except Exception as e:
+            st.error(f"Error exporting data: {str(e)}")
+        
+        return st.session_state.user_id or "GUEST"
     
     def init_pdf_reader(self):
         """Initialize the PDF reader with enhanced error handling for deployment"""
@@ -225,8 +409,8 @@ class CareerFairApp:
                 
                 st.stop()
             
-            # Try to initialize the PDF reader
-            self.pdf_reader = CareerFairPDFReader(self.pdf_path)
+            # Try to initialize the PDF reader with user ID
+            self.pdf_reader = CareerFairPDFReader(self.pdf_path, self.user_id)
             
             # Validate that the PDF reader is working
             if hasattr(self.pdf_reader, 'get_venue_companies'):
@@ -1530,6 +1714,12 @@ class CareerFairApp:
         # Main title
         st.title("🎯 NUS Career Fair 2025 - Student Guide")
         st.markdown("**October 8-9, 2025** | Stephen Riady Centre & Engineering Auditorium")
+        
+        # User ID status display
+        if self.user_id != "GUEST":
+            st.info(f"👤 **Your Profile ID:** `{self.user_id}` | 💾 Your progress is saved across all devices!")
+        else:
+            st.warning("⚠️ **Guest Mode:** Your progress won't be saved. Set up your profile in the sidebar to track your career fair progress!")
         
         # Add OpenAI status indicator at the top
         try:
