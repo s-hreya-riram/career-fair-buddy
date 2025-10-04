@@ -13,8 +13,8 @@ venv/
 env/
 .env/
 
-# OpenAI vision cache
-openai_vision_cache.json
+# OpenAI vision cache - commented out to include pre-built cache in deployment
+# openai_vision_cache.json
 
 # IDE and editor files
 .vscode/

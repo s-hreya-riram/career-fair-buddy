@@ -11,26 +11,22 @@ A smart, interactive companion app for the NUS Career Fair 2025. Find companies,
 - **📊 Interactive Tables**: Sort and filter companies with real-time updates
 - **💾 Export Data**: Download your career fair progress as CSV
 
-## 🚀 Quick Start
+## 🎪 Career Fair Details
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/s-hreya-riram/career-fair-buddy.git
-   cd career-fair-buddy
-   ```
+**Event**: NUS Career Fest 2025  
+**Dates**: October 8-9, 2025  
+**Venues**: Stephen Riady Centre & Engineering Auditorium
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
 
-3. **Run the app**
-   ```bash
-   streamlit run streamlit_app.py
-   ```
+## 💡 How to Use
 
-4. **Open in browser**
-   Navigate to `http://localhost:8501`
+1. **Browse Companies**: Navigate between Day 1 and Day 2 venues
+2. **Search & Filter**: Use the search bar and filters to find relevant companies
+3. **Track Progress**: Check off companies you've visited or are interested in
+4. **Add Notes**: Leave comments about your interactions
+5. **AI Matching**: Upload your resume for personalized recommendations
+6. **Export Data**: Download your progress for follow-up
+
 
 ## 📋 Requirements
 
@@ -38,12 +34,6 @@ A smart, interactive companion app for the NUS Career Fair 2025. Find companies,
 - Streamlit
 - PyMuPDF (for PDF processing)
 - Additional dependencies in `requirements.txt`
-
-## 🎪 Career Fair Details
-
-**Event**: NUS Career Fest 2025  
-**Dates**: October 8-9, 2025  
-**Venues**: Stephen Riady Centre & Engineering Auditorium
 
 ## 🏗️ Project Structure
 
@@ -56,19 +46,37 @@ career-fair-buddy/
 └── src/                      # Additional source files
 ```
 
-## 💡 How to Use
-
-1. **Browse Companies**: Navigate between Day 1 and Day 2 venues
-2. **Search & Filter**: Use the search bar and filters to find relevant companies
-3. **Track Progress**: Check off companies you've visited or are interested in
-4. **Add Notes**: Leave comments about your interactions
-5. **AI Matching**: Upload your resume for personalized recommendations
-6. **Export Data**: Download your progress for follow-up
-
 ## 🔧 Deployment
 
-The app works on any Streamlit-compatible platform:
+### Streamlit Cloud (Recommended)
+1. Fork or clone this repository
+2. Connect your GitHub account to [Streamlit Cloud](https://share.streamlit.io/)
+3. Deploy directly from your GitHub repository
 
-- **Streamlit Cloud**: Connect your GitHub repo for automatic deployment
-- **Heroku**: Use the provided configuration files
-- **Local**: Run with `streamlit run streamlit_app.py`
+### Local Development
+1. Clone the repository and navigate to the project directory
+
+2. Set up a virtual environment:
+   ```bash
+   python -m venv venv
+   source ./venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Create a `.env` file in the root directory for local testing and a `secrets.toml` file under .streamlit for connecting to OpenAI through the Streamlit app:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+5. Run the application:
+   ```
+   streamlit run src/app.py
+   ```
+
+The app will open in your browser.
+
+### 
