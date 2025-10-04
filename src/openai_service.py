@@ -129,6 +129,30 @@ class OpenAIService:
         self.cache_manager.save_cache()
         return result or "Unknown"
     
+    def analyze_company_website(
+        self, 
+        booth_number: str, 
+        company_name: str,
+        page_num: int,
+        is_day2: bool = False
+    ) -> str:
+        """Analyze company website using OpenAI API"""
+        if not self.is_available():
+            return ""
+        
+        # Check cache first
+        cached = self.cache_manager.get_company_website(booth_number, page_num, is_day2)
+        if cached:
+            return cached
+        
+        # Analyze with OpenAI
+        result = self._analyze_website_with_ai(company_name)
+        
+        # Cache the result (even if empty)
+        self.cache_manager.set_company_website(booth_number, page_num, result, is_day2)
+        self.cache_manager.save_cache()
+        return result or ""
+    
     def _analyze_education_with_vision(self, booth_number: str, page_num: int, pdf_path: str) -> Optional[str]:
         """Analyze education level using OpenAI vision with retry logic"""
         for attempt in range(Config.OPENAI_MAX_RETRIES):
@@ -316,6 +340,84 @@ Look carefully at the layout around booth {booth_number} and respond with ONLY t
                 break
         
         return None
+    
+    def _analyze_website_with_ai(self, company_name: str) -> Optional[str]:
+        """Analyze company website using OpenAI text completion with retry logic"""
+        for attempt in range(Config.OPENAI_MAX_RETRIES):
+            try:
+                prompt = f"""Find the official website URL for the company "{company_name}".
+
+Context: This company is participating in the NUS Career Fair 2025 in Singapore. Most companies are either:
+- Based in Singapore 
+- Major multinational companies with Singapore operations
+- Regional companies operating in Southeast Asia
+
+Requirements:
+- Return ONLY the main website URL (e.g., https://company.com)
+- Prefer the Singapore/regional website if multiple exist
+- If the company has multiple business units, return the main corporate website
+- Do not include specific page URLs (careers, about, etc.) - just the homepage
+- If uncertain between multiple companies with similar names, prefer the larger/more established one
+
+Examples:
+- "DBS Bank" → "https://www.dbs.com.sg"
+- "Grab" → "https://www.grab.com" 
+- "Shopee" → "https://shopee.sg"
+- "Google" → "https://www.google.com"
+
+Company: {company_name}
+Website URL:"""
+                
+                response = self.client.chat.completions.create(
+                    model=Config.OPENAI_MODEL_MINI,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=100,
+                    temperature=0.1,
+                    timeout=Config.OPENAI_TIMEOUT
+                )
+                
+                website = response.choices[0].message.content.strip()
+                
+                # Validate URL format
+                if self._is_valid_url(website):
+                    return website
+                
+                if attempt < Config.OPENAI_MAX_RETRIES - 1:
+                    continue
+                
+            except Exception as e:
+                if self._should_retry(e, attempt):
+                    self._handle_retry_wait(e, attempt)
+                    continue
+                break
+        
+        return None
+    
+    def _is_valid_url(self, url: str) -> bool:
+        """Validate URL format"""
+        if not url:
+            return False
+        
+        # Basic URL validation
+        url = url.strip()
+        
+        # Must start with http or https
+        if not (url.startswith('http://') or url.startswith('https://')):
+            return False
+        
+        # Must contain a domain
+        if '.' not in url:
+            return False
+        
+        # Must not contain spaces
+        if ' ' in url:
+            return False
+        
+        # Must be reasonable length
+        if len(url) > 200:
+            return False
+        
+        return True
     
     def _convert_pdf_page_to_image(self, page_num: int, pdf_path: str) -> Optional[str]:
         """Convert PDF page to base64 image"""

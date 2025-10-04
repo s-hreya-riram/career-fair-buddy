@@ -27,6 +27,15 @@ def get_custom_css() -> str:
             font-size: 14px !important;
         }
         
+        /* Make user ID more visible on mobile */
+        .user-id-mobile {
+            background-color: rgba(0, 123, 255, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
         .company-card {
             margin-bottom: 1rem;
             padding: 1rem;

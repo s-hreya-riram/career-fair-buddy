@@ -22,7 +22,7 @@ st.set_page_config(
     page_title="Career Fair Buddy",
     page_icon="🎯",
     layout="wide",
-    initial_sidebar_state="auto",
+    initial_sidebar_state="expanded",
     menu_items={
         'Get Help': 'https://github.com/your-repo/career-fair-buddy',
         'Report a bug': 'https://github.com/your-repo/career-fair-buddy/issues',
@@ -57,6 +57,11 @@ class CareerFairApp:
             st.write(f"**User ID:** `{st.session_state.user_id}`")
             st.caption("Your unique ID for this session. Data is saved automatically.")
             
+            # Add option to generate new user ID
+            if st.button("🔄 Generate New User ID", help="Get a new unique identifier"):
+                st.session_state.user_id = UserManager.generate_user_id()
+                st.rerun()
+            
             # System metrics
             self.display_system_metrics()
             
@@ -81,8 +86,7 @@ class CareerFairApp:
                 st.warning("⚠️ Performance Impact")
                 for warning in metrics['warnings']:
                     st.caption(f"• {warning}")
-            else:
-                st.success("✅ System Operating Normally")
+            # Removed success message for cleaner UI
                 
         except Exception as e:
             st.error(f"Could not load system metrics: {e}")
@@ -101,7 +105,7 @@ class CareerFairApp:
                     file_name=f"career_fair_data_{st.session_state.user_id}.csv",
                     mime="text/csv"
                 )
-                st.success("✅ Data export ready!")
+                # Removed success message for cleaner UI
             else:
                 st.error("PDF reader not initialized")
     
@@ -327,8 +331,7 @@ class CareerFairApp:
                     apply_online=apply_online,
                     comments=comments
                 )
-                # Show a subtle success indicator
-                st.success("✅ Saved!", icon="💾")
+                # Data automatically saved
         
         # Consistent spacing between cards
         st.markdown("---")
@@ -354,7 +357,7 @@ class CareerFairApp:
                 st.error("Could not extract text from PDF. Please try a different file.")
                 return
             
-            st.success(f"✅ Extracted {len(resume_text)} characters from resume")
+            # Resume text extracted successfully
             
             # User preferences
             preferences = st.text_area(
@@ -491,6 +494,17 @@ class CareerFairApp:
         # App header
         st.title("🎯 Career Fair Buddy")
         st.markdown("Your AI-powered career fair companion")
+        
+        # Mobile-friendly user ID display
+        col1, col2, col3 = st.columns([2, 2, 1])
+        with col1:
+            st.caption("NUS Career Fair 2025 • October 8-9")
+        with col2:
+            st.caption(f"👤 ID: `{st.session_state.user_id}`")
+        with col3:
+            if st.button("�", help="Generate new User ID", key="mobile_change_id"):
+                st.session_state.user_id = UserManager.generate_user_id()
+                st.rerun()
         
         # Mobile settings
         self.mobile_manager.setup_mobile_toggle()

@@ -93,6 +93,11 @@ class CareerFairPDFReader:
                     booth_number, page_num, str(self.pdf_path), is_day2
                 )
                 
+                # Get website URL
+                website = self.openai_service.analyze_company_website(
+                    booth_number, company_name, page_num, is_day2
+                )
+                
                 # Get user interaction data
                 user_interaction = self.user_manager.get_interaction(booth_number)
                 

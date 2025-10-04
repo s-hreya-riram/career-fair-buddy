@@ -69,6 +69,11 @@ class CacheManager:
         suffix = "_day2" if is_day2 else ""
         return f"industry_{get_cache_key(booth_number, page_num, suffix)}"
     
+    def get_website_key(self, booth_number: str, page_num: int, is_day2: bool = False) -> str:
+        """Get cache key for website"""
+        suffix = "_day2" if is_day2 else ""
+        return f"website_{get_cache_key(booth_number, page_num, suffix)}"
+    
     def get_education_level(self, booth_number: str, page_num: int, is_day2: bool = False) -> Optional[str]:
         """Get cached education level"""
         key = self.get_education_key(booth_number, page_num, is_day2)
@@ -99,11 +104,22 @@ class CacheManager:
         key = self.get_industry_key(booth_number, page_num, is_day2)
         self.set(key, industry)
     
+    def get_company_website(self, booth_number: str, page_num: int, is_day2: bool = False) -> Optional[str]:
+        """Get cached company website"""
+        key = self.get_website_key(booth_number, page_num, is_day2)
+        return self.get(key)
+    
+    def set_company_website(self, booth_number: str, page_num: int, website: str, is_day2: bool = False) -> None:
+        """Cache company website"""
+        key = self.get_website_key(booth_number, page_num, is_day2)
+        self.set(key, website)
+    
     def get_stats(self) -> Dict[str, Any]:
         """Get comprehensive cache statistics"""
         education_entries = 0
         company_entries = 0
         industry_entries = 0
+        website_entries = 0
         other_entries = 0
         
         for key in self.cache.keys():
@@ -111,7 +127,9 @@ class CacheManager:
                 industry_entries += 1
             elif key.startswith('company_'):
                 company_entries += 1
-            elif '_' in key and not key.startswith(('industry_', 'company_')):
+            elif key.startswith('website_'):
+                website_entries += 1
+            elif '_' in key and not key.startswith(('industry_', 'company_', 'website_')):
                 education_entries += 1
             else:
                 other_entries += 1
@@ -125,6 +143,7 @@ class CacheManager:
             'education_entries': education_entries,
             'company_entries': company_entries,
             'industry_entries': industry_entries,
+            'website_entries': website_entries,
             'other_entries': other_entries,
             'file_exists': self.cache_file.exists(),
             'file_path': str(self.cache_file),
