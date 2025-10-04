@@ -447,8 +447,37 @@ class CareerFairApp:
         """Display company listings for a specific venue with education level filtering"""
         st.subheader("🏢 Companies at this Venue")
         
-        # Get company data for this venue
-        companies = self.pdf_reader.get_venue_companies(venue_name)
+        # Add loading status indicator
+        with st.spinner(f"Loading companies for {venue_name}..."):
+            # Get company data for this venue
+            companies = self.pdf_reader.get_venue_companies(venue_name)
+        
+        # Add debug information about loading status
+        with st.expander("🔧 Loading Debug Info (click to expand)"):
+            st.write("**Loading Status:**")
+            st.write(f"- Venue: {venue_name}")
+            st.write(f"- Companies loaded: {len(companies) if companies else 0}")
+            
+            if companies:
+                st.write(f"- First company: {companies[0].get('name', 'Unknown')}")
+                st.write(f"- Sample booth: {companies[0].get('booth_number', 'Unknown')}")
+                st.write(f"- Sample industry: {companies[0].get('industry', 'Unknown')}")
+                st.write(f"- Sample education: {companies[0].get('education_level', 'Unknown')}")
+            
+            # Check cache status
+            try:
+                import os
+                cache_exists = os.path.exists('openai_vision_cache.json')
+                st.write(f"- Cache file exists: {cache_exists}")
+                
+                if cache_exists:
+                    with open('openai_vision_cache.json', 'r') as f:
+                        import json
+                        cache = json.load(f)
+                        st.write(f"- Cache entries: {len(cache)}")
+                        st.write(f"- Sample cache keys: {list(cache.keys())[:3]}")
+            except Exception as e:
+                st.write(f"- Cache check error: {str(e)}")
         
         # Enhanced debugging for deployment issues
         if not companies:
