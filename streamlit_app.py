@@ -208,11 +208,51 @@ class CareerFairApp:
         self.init_pdf_reader()
     
     def init_pdf_reader(self):
-        """Initialize the PDF reader"""
+        """Initialize the PDF reader with enhanced error handling for deployment"""
         try:
+            # Check if PDF file exists before initializing
+            import os
+            if not os.path.exists(self.pdf_path):
+                st.error(f"❌ PDF file not found at: {self.pdf_path}")
+                st.error("This is likely a deployment issue. Please ensure the PDF file is included in your deployment.")
+                
+                # Show current working directory and file list for debugging
+                st.write(f"Current working directory: {os.getcwd()}")
+                if os.path.exists("data"):
+                    st.write(f"Files in data directory: {os.listdir('data')}")
+                else:
+                    st.write("Data directory does not exist")
+                
+                st.stop()
+            
+            # Try to initialize the PDF reader
             self.pdf_reader = CareerFairPDFReader(self.pdf_path)
+            
+            # Validate that the PDF reader is working
+            if hasattr(self.pdf_reader, 'get_venue_companies'):
+                # Test with a simple venue call
+                try:
+                    test_companies = self.pdf_reader.get_venue_companies("Test")
+                    st.success(f"✅ PDF reader initialized successfully. File size: {os.path.getsize(self.pdf_path)} bytes")
+                except Exception as test_error:
+                    st.warning(f"⚠️ PDF reader initialized but may have issues: {str(test_error)}")
+            else:
+                st.error("❌ PDF reader initialized but missing required methods")
+                st.stop()
+                
+        except ImportError as import_error:
+            st.error(f"❌ Import error - missing required library: {str(import_error)}")
+            st.error("Please ensure all required packages are installed in your deployment environment.")
+            st.stop()
         except Exception as e:
-            st.error(f"Error loading PDF: {str(e)}")
+            st.error(f"❌ Error loading PDF reader: {str(e)}")
+            st.error("This might be a deployment environment issue. Please check:")
+            st.markdown("""
+            - PDF file is included in deployment
+            - All required Python packages are installed
+            - File permissions are correct
+            - PDF file is not corrupted
+            """)
             st.stop()
     
     def is_mobile_device(self):
@@ -410,12 +450,59 @@ class CareerFairApp:
         # Get company data for this venue
         companies = self.pdf_reader.get_venue_companies(venue_name)
         
+        # Enhanced debugging for deployment issues
         if not companies:
-            st.info("No company data found for this venue. Please check the PDF structure.")
+            st.error("⚠️ No company data found for this venue.")
+            
+            # Add deployment debugging
+            with st.expander("🔧 Deployment Debug Info"):
+                st.write("**Debugging information:**")
+                st.write(f"- Venue name: '{venue_name}'")
+                st.write(f"- PDF path: {self.pdf_path}")
+                
+                # Check if PDF file exists
+                import os
+                pdf_exists = os.path.exists(self.pdf_path)
+                st.write(f"- PDF file exists: {pdf_exists}")
+                
+                if pdf_exists:
+                    st.write(f"- PDF file size: {os.path.getsize(self.pdf_path)} bytes")
+                
+                # Check PDF reader status
+                st.write(f"- PDF reader initialized: {self.pdf_reader is not None}")
+                
+                if hasattr(self.pdf_reader, 'get_all_venues'):
+                    try:
+                        all_venues = self.pdf_reader.get_all_venues()
+                        st.write(f"- Available venues: {all_venues}")
+                    except Exception as e:
+                        st.write(f"- Error getting venues: {str(e)}")
+                
+                # Check if it's a method name issue
+                if hasattr(self.pdf_reader, '__dict__'):
+                    methods = [method for method in dir(self.pdf_reader) if not method.startswith('_')]
+                    st.write(f"- Available PDF reader methods: {methods[:10]}...")  # Show first 10
+            
+            st.info("💡 **Possible solutions:**")
+            st.markdown("""
+            1. Check if the PDF file is included in your deployment
+            2. Verify the file path is correct for your deployment environment
+            3. Ensure the PDF parsing methods are working correctly
+            4. Check if there are any permissions issues accessing the file
+            """)
             return
         
-        # Education level filter
-        st.subheader("🎓 Filter by Education Level Eligibility")
+        # Filters section
+        st.subheader("🔍 Search & Filter Companies")
+        
+        # Company name search
+        filter_key_base = venue_name.replace(' ', '_').replace('-', '_')
+        company_search = st.text_input(
+            "🏢 Search by company name:",
+            placeholder="Type company name to search...",
+            help="Search for specific companies by name",
+            key=f"company_search_{filter_key_base}"
+        )
         
         # Create standardized education level options
         education_options = ["All", "Undergraduate", "Postgraduate"]
@@ -428,25 +515,92 @@ class CareerFairApp:
                 options=education_options,
                 default=["All"],
                 help="Filter companies based on whether they're open to undergraduates, postgraduates, or both. Companies marked as 'Both' will appear when either level is selected.",
-                key=f"education_filter_{venue_name.replace(' ', '_').replace('-', '_')}"
+                key=f"education_filter_{filter_key_base}"
             )
         
         with col2:
-            # Industry filter
+            # Industry filter - enhanced for deployment debugging
             available_industries = list(set([company.get('industry', 'Not specified') for company in companies]))
-            available_industries.sort()
-            industry_filter_options = ["All"] + available_industries
+            
+            # Enhanced debugging for deployment issues
+            debug_enabled = st.checkbox("🔧 Debug: Show industry extraction details", key=f"debug_industries_{filter_key_base}")
+            
+            if debug_enabled:
+                st.write("**Industry Extraction Debug:**")
+                st.write(f"- Total companies loaded: {len(companies)}")
+                st.write(f"- Raw industries found: {len(available_industries)}")
+                
+                # Show sample company data structure
+                if companies:
+                    st.write("**Sample company data structure:**")
+                    sample_company = companies[0]
+                    st.json(sample_company)
+                    
+                    # Show all unique industry values
+                    st.write("**All unique industry values:**")
+                    for i, industry in enumerate(available_industries):
+                        st.write(f"{i+1}. '{industry}' (type: {type(industry)})")
+                
+                # Show companies with their industries
+                st.write("**First 5 companies with industries:**")
+                for i, company in enumerate(companies[:5]):
+                    company_name = company.get('name', 'N/A')
+                    industry = company.get('industry', 'Not specified')
+                    st.write(f"{i+1}. **{company_name}** → Industry: '{industry}'")
+                
+                if len(companies) > 5:
+                    st.write(f"... and {len(companies) - 5} more companies")
+            
+            # Clean up industries - enhanced logic for deployment
+            cleaned_industries = []
+            for industry in available_industries:
+                # More robust cleaning for deployment environment
+                if industry is not None and str(industry).strip() and str(industry).strip() not in ['Not specified', 'Unknown', '', 'None', 'null']:
+                    cleaned_industries.append(str(industry).strip())
+            
+            # Remove duplicates and sort
+            cleaned_industries = sorted(list(set(cleaned_industries)))
+            
+            # Enhanced fallback for deployment issues
+            if not cleaned_industries:
+                st.warning("⚠️ No valid industry data extracted from companies.")
+                
+                if debug_enabled:
+                    st.write("**Fallback reason:** All industries were filtered out or empty")
+                    st.write(f"**Original industries:** {available_industries}")
+                
+                # Provide deployment-friendly fallback
+                st.info("🔧 Using comprehensive fallback industry list suitable for career fairs.")
+                cleaned_industries = [
+                    "Aerospace & Defense", "Agriculture", "Automotive", "Banking & Finance", 
+                    "Biotechnology", "Chemicals", "Consulting", "Consumer Goods", 
+                    "Education", "Electronics", "Energy & Utilities", "Engineering",
+                    "Entertainment & Media", "Fashion & Retail", "Food & Beverage",
+                    "Government", "Healthcare", "Hospitality & Tourism", "Insurance",
+                    "Legal Services", "Logistics & Transportation", "Manufacturing",
+                    "Mining", "Non-Profit", "Oil & Gas", "Pharmaceuticals",
+                    "Real Estate", "Telecommunications", "Technology", "Textiles"
+                ]
+            
+            industry_filter_options = ["All"] + cleaned_industries
             
             selected_industries = st.multiselect(
                 "Select industries:",
                 options=industry_filter_options,
                 default=["All"],
-                help="Filter companies by industry sector",
-                key=f"industry_filter_{venue_name.replace(' ', '_').replace('-', '_')}"
+                help="Filter companies by industry sector. If data extraction fails, comprehensive fallback options are provided.",
+                key=f"industry_filter_{filter_key_base}"
             )
         
         # Filter companies based on selection
         filtered_companies = companies
+        
+        # Company name search filter
+        if company_search:
+            filtered_companies = [
+                company for company in filtered_companies 
+                if company_search.lower() in company.get('name', '').lower()
+            ]
         
         # Enhanced education level filtering logic
         if "All" not in selected_levels and selected_levels:
@@ -525,7 +679,18 @@ class CareerFairApp:
         
         # Display filtered companies
         if len(filtered_companies) > 0:
-            st.write(f"Showing **{len(filtered_companies)}** of **{len(companies)}** companies:")
+            # Show search results context
+            search_context = ""
+            if company_search:
+                search_context = f" matching '{company_search}'"
+            
+            st.write(f"Showing **{len(filtered_companies)}** of **{len(companies)}** companies{search_context}:")
+            
+            # Clear search button for convenience
+            if company_search:
+                if st.button("🔄 Clear Search", key=f"clear_search_{filter_key_base}"):
+                    st.session_state[f"company_search_{filter_key_base}"] = ""
+                    st.rerun()
             
             # Automatically detect if mobile device
             is_mobile = self.is_mobile_device()
@@ -645,16 +810,8 @@ class CareerFairApp:
                     col_company, col_industry, col_actions, col_comments = st.columns([3, 2, 3, 3])
                     
                     with col_company:
-                        # Color-code by education level
-                        if education_level == 'Undergraduate':
-                            st.markdown(f'<span style="background-color: #e3f2fd; padding: 2px 4px; border-radius: 3px;"><strong>{booth_number}</strong> - {company_name}</span>', unsafe_allow_html=True)
-                        elif education_level == 'Postgraduate':
-                            st.markdown(f'<span style="background-color: #f3e5f5; padding: 2px 4px; border-radius: 3px;"><strong>{booth_number}</strong> - {company_name}</span>', unsafe_allow_html=True)
-                        elif education_level == 'Both':
-                            st.markdown(f'<span style="background-color: #e8f5e8; padding: 2px 4px; border-radius: 3px;"><strong>{booth_number}</strong> - {company_name}</span>', unsafe_allow_html=True)
-                        else:
-                            st.markdown(f'<span style="background-color: #fff3e0; padding: 2px 4px; border-radius: 3px;"><strong>{booth_number}</strong> - {company_name}</span>', unsafe_allow_html=True)
-                        
+                        # Display company name without background color highlighting
+                        st.markdown(f"**{booth_number} - {company_name}**")
                         st.caption(f"Education: {education_level}")
                     
                     with col_industry:
@@ -772,7 +929,10 @@ class CareerFairApp:
                         mime="text/csv"
                     )
         else:
-            st.warning("No companies found matching the selected education level criteria.")
+            if company_search:
+                st.warning(f"No companies found matching '{company_search}'. Try adjusting your search term or filters.")
+            else:
+                st.warning("No companies found matching the selected education level criteria.")
     
     def display_resume_match_tab(self):
         """Display the resume matching tab"""
