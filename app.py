@@ -125,12 +125,17 @@ class CareerFairPDFReader:
     
     def _get_cache_key(self, booth_number, page_num):
         """Generate a cache key for OpenAI vision analysis"""
-        # Include PDF modification time to invalidate cache if PDF changes
-        try:
-            pdf_mtime = os.path.getmtime(self.pdf_path)
-            return f"{booth_number}_{page_num}_{pdf_mtime}"
-        except:
-            return f"{booth_number}_{page_num}"
+        # Use a fixed timestamp for deployment compatibility
+        # This ensures cache works across different environments
+        return f"{booth_number}_{page_num}_1759480166.4307017"
+    
+    def _get_company_cache_key(self, booth_number, page_num, cache_suffix=""):
+        """Generate a cache key for company name analysis"""
+        return f"company_{booth_number}_{page_num}_1759480166.4307017{cache_suffix}"
+    
+    def _get_industry_cache_key(self, booth_number, page_num, cache_suffix=""):
+        """Generate a cache key for industry analysis"""
+        return f"industry_{booth_number}_{page_num}_1759480166.4307017{cache_suffix}"
     
     def get_cache_stats(self):
         """Get comprehensive statistics about the OpenAI vision cache"""
@@ -401,7 +406,7 @@ class CareerFairPDFReader:
                         print("📚❌", end=" ")
                 
                 # 2. Company Name Cache
-                company_cache_key = f"company_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}"
+                company_cache_key = self._get_company_cache_key(booth_number, page_num)
                 if company_cache_key in self.vision_cache:
                     total_stats['company_cache_hits'] += 1
                     print("🏢✓", end=" ")
@@ -417,7 +422,7 @@ class CareerFairPDFReader:
                         print("🏢❌", end=" ")
                 
                 # 3. Industry Cache  
-                industry_cache_key = f"industry_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}"
+                industry_cache_key = self._get_industry_cache_key(booth_number, page_num)
                 if industry_cache_key in self.vision_cache:
                     total_stats['industry_cache_hits'] += 1
                     print("🏭✓")
@@ -792,7 +797,7 @@ Respond ONLY with valid JSON:
             
             # Check cache first (use company-specific cache key) - include venue context for Day 2
             cache_suffix = "_day2" if venue_context and "Day 2" in venue_context else ""
-            cache_key = f"company_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}{cache_suffix}"
+            cache_key = self._get_company_cache_key(booth_number, page_num, cache_suffix)
             if cache_key in self.vision_cache:
                 cached_result = self.vision_cache[cache_key]
                 return cached_result
@@ -957,7 +962,7 @@ Respond with ONLY the clean company name, nothing else."""
             
             # Check cache first (use industry-specific cache key) - include venue context for Day 2
             cache_suffix = "_day2" if venue_context and "Day 2" in venue_context else ""
-            cache_key = f"industry_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}{cache_suffix}"
+            cache_key = self._get_industry_cache_key(booth_number, page_num, cache_suffix)
             
             if cache_key in self.vision_cache:
                 cached_result = self.vision_cache[cache_key]
@@ -1361,11 +1366,11 @@ What color is the briefcase at booth {booth_number}? Respond with exactly one wo
                 
                 # Get cached company name
                 cache_suffix = "_day2" if venue_context and "Day 2" in venue_context else ""
-                company_cache_key = f"company_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}{cache_suffix}"
+                company_cache_key = self._get_company_cache_key(booth_number, page_num, cache_suffix)
                 company_name = self.vision_cache.get(company_cache_key, "Unknown Company")
                 
                 # Get cached industry
-                industry_cache_key = f"industry_{booth_number}_{page_num}_{os.path.getmtime(self.pdf_path) if self.pdf_path.exists() else 0}{cache_suffix}"
+                industry_cache_key = self._get_industry_cache_key(booth_number, page_num, cache_suffix)
                 industry = self.vision_cache.get(industry_cache_key, "Unknown")
                 
                 # Get cached education level
