@@ -482,6 +482,37 @@ class CareerFairApp:
                 if hasattr(self.pdf_reader, '__dict__'):
                     methods = [method for method in dir(self.pdf_reader) if not method.startswith('_')]
                     st.write(f"- Available PDF reader methods: {methods[:10]}...")  # Show first 10
+                
+                # Add OpenAI debugging
+                st.write("**OpenAI Configuration:**")
+                try:
+                    # Import app module to check OpenAI status
+                    import app
+                    st.write(f"- OpenAI Available: {'✅ YES' if app.OPENAI_AVAILABLE else '❌ NO'}")
+                    
+                    # Check for API key sources
+                    api_key_sources = []
+                    try:
+                        if st.secrets.get("OPENAI_API_KEY"):
+                            api_key_sources.append("Streamlit secrets")
+                    except:
+                        pass
+                    
+                    try:
+                        import os
+                        if os.getenv("OPENAI_API_KEY"):
+                            api_key_sources.append("Environment variable")
+                    except:
+                        pass
+                    
+                    st.write(f"- API Key Sources Found: {api_key_sources if api_key_sources else 'None'}")
+                    
+                    # Show OpenAI client status
+                    if hasattr(app, 'openai_client'):
+                        st.write(f"- OpenAI Client: {'✅ Initialized' if app.openai_client else '❌ Not initialized'}")
+                    
+                except Exception as e:
+                    st.write(f"- OpenAI Debug Error: {str(e)}")
             
             st.info("💡 **Possible solutions:**")
             st.markdown("""
@@ -1444,7 +1475,37 @@ class CareerFairApp:
         st.title("🎯 NUS Career Fair 2025 - Student Guide")
         st.markdown("**October 8-9, 2025** | Stephen Riady Centre & Engineering Auditorium")
         
-        # Welcome message with automatic detection info
+        # Add OpenAI status indicator at the top
+        try:
+            import app
+            if app.OPENAI_AVAILABLE:
+                st.success("🤖 AI Features Available: Company analysis, industry extraction, and resume matching are fully functional!")
+            else:
+                st.warning("⚠️ AI Features Limited: OpenAI API is not available. Some features like industry extraction and resume matching may show 'Unknown' results.")
+                
+                with st.expander("🔧 OpenAI Configuration Help"):
+                    st.markdown("""
+                    **To enable full AI features:**
+                    
+                    1. **For Streamlit Cloud deployment:**
+                       - Go to your Streamlit Cloud dashboard
+                       - Click on your app → Settings → Secrets
+                       - Add: `OPENAI_API_KEY = "your-api-key-here"`
+                       - Reboot the app
+                    
+                    2. **For local development:**
+                       - Create a `.env` file with `OPENAI_API_KEY=your-api-key-here`
+                       - Or set the environment variable `OPENAI_API_KEY`
+                    
+                    3. **Get an API key:**
+                       - Visit https://platform.openai.com/api-keys
+                       - Create a new API key
+                       - Add it to your deployment secrets
+                    """)
+        except Exception as e:
+            st.error(f"❌ Error checking OpenAI status: {str(e)}")
+        
+        st.divider()
         with st.expander("ℹ️ About this App", expanded=False):
             st.markdown("""
             **AI-powered Career Fair Companion** 🎉
