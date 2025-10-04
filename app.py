@@ -9,25 +9,63 @@ from pypdf import PdfReader
 from PIL import Image
 import tempfile
 
-# Load environment variables and OpenAI
+# Load environment variables and OpenAI with multiple sources
 try:
-    from dotenv import load_dotenv
-    load_dotenv()
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    import streamlit as st
+    # Try Streamlit secrets first (for Streamlit Cloud deployment)
+    try:
+        OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+        print(f"🔑 Using Streamlit secrets for API key")
+    except:
+        # Fall back to environment variables
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+            OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+            print(f"🔑 Using .env file for API key")
+        except ImportError:
+            OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+            print(f"🔑 Using environment variable for API key")
 except ImportError:
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    # If streamlit not available, use dotenv
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+        print(f"🔑 Using .env file for API key (no Streamlit)")
+    except ImportError:
+        OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+        print(f"🔑 Using environment variable for API key (no dotenv)")
 
-# Initialize OpenAI client
+# Initialize OpenAI client with deployment debugging
 OPENAI_AVAILABLE = False
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+print(f"🔍 OpenAI Setup Debug:")
+print(f"   - API Key exists: {bool(OPENAI_API_KEY)}")
+print(f"   - API Key length: {len(OPENAI_API_KEY) if OPENAI_API_KEY else 0}")
+
 if OPENAI_API_KEY:
     try:
         from openai import OpenAI
+        print(f"   - OpenAI package imported successfully")
         openai_client = OpenAI(api_key=OPENAI_API_KEY)
+        print(f"   - OpenAI client created successfully")
         OPENAI_AVAILABLE = True
-    except ImportError:
+        print(f"   - OpenAI status: AVAILABLE ✅")
+    except ImportError as e:
+        print(f"   - OpenAI import failed: {e}")
+        openai_client = None
+    except Exception as e:
+        print(f"   - OpenAI client creation failed: {e}")
         openai_client = None
 else:
+    print(f"   - No API key found")
     openai_client = None
+
+print(f"   - Final status: {'AVAILABLE' if OPENAI_AVAILABLE else 'UNAVAILABLE'}")
+print(f"   - Current working directory: {os.getcwd()}")
+print(f"   - Environment variables containing 'OPENAI': {[k for k in os.environ.keys() if 'OPENAI' in k.upper()]}")
 
 class CareerFairPDFReader:
     def __init__(self, pdf_path):

@@ -30,3 +30,7 @@ openai_vision_cache.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Streamlit files
+.streamlit/
+secrets.toml
