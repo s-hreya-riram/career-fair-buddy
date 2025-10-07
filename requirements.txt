@@ -1,6 +1,3 @@
-# Core Dependencies
-python>=3.8
-
 # Basic data handling
 pandas>=2.0.0
 numpy>=1.24.0

@@ -267,7 +267,8 @@ class CareerFairApp:
                     'Interested': data.get('interested', False),
                     'Resume_Shared': data.get('resume_shared', False),
                     'Apply_Online': data.get('apply_online', False),
-                    'Comments': data.get('comments', '')
+                    'Comments': data.get('comments', ''),
+                    'Visa_Sponsor': data.get('visa_sponsor', '')
                 })
             
             # Create DataFrame
@@ -973,7 +974,7 @@ class CareerFairApp:
                 st.subheader("📝 Interactive Company Table")
                 
                 # Responsive table with fewer columns for better mobile experience
-                col_company, col_industry, col_actions, col_comments = st.columns([3, 2, 3, 3])
+                col_company, col_industry, col_actions, col_visa, col_comments = st.columns([3, 2, 2, 2, 3])
                 
                 with col_company:
                     st.write("**Company (Booth)**")
@@ -981,6 +982,8 @@ class CareerFairApp:
                     st.write("**Industry**")
                 with col_actions:
                     st.write("**Actions**")
+                with col_visa:
+                    st.write("**Visa Sponsorship**")
                 with col_comments:
                     st.write("**Comments**")
                 
@@ -994,8 +997,8 @@ class CareerFairApp:
                     industry = company.get('industry', 'Not specified')
                     
                     # Create columns for this row
-                    col_company, col_industry, col_actions, col_comments = st.columns([3, 2, 3, 3])
-                    
+                    col_company, col_industry, col_actions, col_visa, col_comments = st.columns([3, 2, 2, 2, 3])
+
                     with col_company:
                         # Display company name without background color highlighting
                         st.markdown(f"**{booth_number} - {company_name}**")
@@ -1052,6 +1055,20 @@ class CareerFairApp:
                             if apply_online != company.get('apply_online', False):
                                 self.pdf_reader.update_user_interaction(booth_number, apply_online=apply_online)
                                 st.rerun()
+
+                    with col_visa:
+                        # Visa sponsorship text input for desktop
+                        current_visa = company.get('visa_sponsor', '')
+                        new_visa = st.text_input(
+                            "Visa Info",
+                            value=current_visa,
+                            key=f"desktop_visa_{booth_number}_{unique_key_suffix}_{i}",
+                            placeholder="e.g., Yes for H1B",
+                            label_visibility="collapsed",
+                            help="Enter visa sponsorship information"
+                        )
+                        if new_visa != current_visa:
+                            self.pdf_reader.update_user_interaction(booth_number, visa_sponsor=new_visa)
                     
                     with col_comments:
                         current_comments = company.get('comments', '')
@@ -1104,6 +1121,7 @@ class CareerFairApp:
                             'Visited': company.get('visited', False),
                             'Resume Shared': company.get('resume_shared', False),
                             'Apply Online': company.get('apply_online', False),
+                            'Visa Sponsorship': company.get('visa_sponsor', ''),
                             'Comments': company.get('comments', '')
                         })
                     
