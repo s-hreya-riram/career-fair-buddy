@@ -331,10 +331,10 @@ class CareerFairApp:
                     key=f"interested_{unique_key_base}"
                 )
                 
-                apply_online = st.checkbox(
-                    "🌐 Applied Online", 
-                    value=company['apply_online'],
-                    key=f"apply_{unique_key_base}"
+                applied_online = st.checkbox(
+                    "🌐 Applied Online",
+                    value=company['applied_online'],
+                    key=f"applied_{unique_key_base}"
                 )
             
             # Comments section with consistent height
@@ -350,7 +350,7 @@ class CareerFairApp:
             if (visited != company['visited'] or 
                 interested != company['interested'] or
                 resume_shared != company['resume_shared'] or
-                apply_online != company['apply_online'] or
+                applied_online != company['applied_online'] or
                 comments != company['comments']):
                 
                 self.pdf_reader.update_user_interaction(
@@ -358,7 +358,7 @@ class CareerFairApp:
                     visited=visited,
                     interested=interested,
                     resume_shared=resume_shared,
-                    apply_online=apply_online,
+                    applied_online=applied_online,
                     comments=comments
                 )
                 # Data automatically saved

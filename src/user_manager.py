@@ -51,7 +51,7 @@ class UserManager:
         return {
             'visited': data.get('visited', False),
             'resume_shared': data.get('resume_shared', False),
-            'apply_online': data.get('apply_online', False),
+            'applied_online': data.get('applied_online', False),
             'interested': data.get('interested', False),
             'comments': data.get('comments', '')
         }
@@ -61,7 +61,7 @@ class UserManager:
         booth_number: str, 
         visited: Optional[bool] = None,
         resume_shared: Optional[bool] = None,
-        apply_online: Optional[bool] = None,
+        applied_online: Optional[bool] = None,
         interested: Optional[bool] = None,
         comments: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -70,7 +70,7 @@ class UserManager:
             self.user_data[booth_number] = {
                 'visited': False,
                 'resume_shared': False,
-                'apply_online': False,
+                'applied_online': False,
                 'interested': False,
                 'comments': '',
                 'last_updated': datetime.now().isoformat()
@@ -81,8 +81,8 @@ class UserManager:
             self.user_data[booth_number]['visited'] = visited
         if resume_shared is not None:
             self.user_data[booth_number]['resume_shared'] = resume_shared
-        if apply_online is not None:
-            self.user_data[booth_number]['apply_online'] = apply_online
+        if applied_online is not None:
+            self.user_data[booth_number]['applied_online'] = applied_online
         if interested is not None:
             self.user_data[booth_number]['interested'] = interested
         if comments is not None:
@@ -100,15 +100,15 @@ class UserManager:
         visited_count = sum(1 for data in self.user_data.values() if data.get('visited', False))
         interested_count = sum(1 for data in self.user_data.values() if data.get('interested', False))
         resume_shared_count = sum(1 for data in self.user_data.values() if data.get('resume_shared', False))
-        apply_online_count = sum(1 for data in self.user_data.values() if data.get('apply_online', False))
-        
+        applied_online_count = sum(1 for data in self.user_data.values() if data.get('applied_online', False))
+
         return {
             'user_id': self.user_id,
             'total_interactions': total_booths,
             'visited_booths': visited_count,
             'interested_booths': interested_count,
             'resumes_shared': resume_shared_count,
-            'online_applications': apply_online_count,
+            'online_applications': applied_online_count,
             'data_file': str(self.user_data_file),
             'file_exists': self.user_data_file.exists()
         }
@@ -116,13 +116,13 @@ class UserManager:
     def export_to_csv(self) -> str:
         """Export user data to CSV format"""
         if not self.user_data:
-            return "booth_number,visited,resume_shared,apply_online,interested,comments,last_updated\n"
+            return "booth_number,visited,resume_shared,applied_online,interested,comments,last_updated\n"
         
-        csv_lines = ["booth_number,visited,resume_shared,apply_online,interested,comments,last_updated"]
+        csv_lines = ["booth_number,visited,resume_shared,applied_online,interested,comments,last_updated"]
         
         for booth_number, data in self.user_data.items():
             line = f"{booth_number},{data.get('visited', False)},{data.get('resume_shared', False)}," \
-                   f"{data.get('apply_online', False)},{data.get('interested', False)}," \
+                   f"{data.get('applied_online', False)},{data.get('interested', False)}," \
                    f"\"{data.get('comments', '')}\",{data.get('last_updated', '')}"
             csv_lines.append(line)
         

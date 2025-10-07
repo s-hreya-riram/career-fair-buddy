@@ -172,14 +172,14 @@ class CareerFairPDFReader:
         self.vision_cache = {}
         if self.cache_file.exists():
             self.cache_file.unlink()
-    
-    def update_user_interaction(self, booth_number, visited=None, resume_shared=None, apply_online=None, interested=None, comments=None, visa_sponsor=None):
+
+    def update_user_interaction(self, booth_number, visited=None, resume_shared=None, applied_online=None, interested=None, comments=None, visa_sponsor=None):
         """Update user interaction data for a specific booth"""
         if booth_number not in self.user_data:
             self.user_data[booth_number] = {
                 'visited': False,
                 'resume_shared': False,
-                'apply_online': False,
+                'applied_online': False,
                 'interested': False,
                 'comments': '',
                 'visa_sponsor': ''
@@ -190,8 +190,8 @@ class CareerFairPDFReader:
             self.user_data[booth_number]['visited'] = visited
         if resume_shared is not None:
             self.user_data[booth_number]['resume_shared'] = resume_shared
-        if apply_online is not None:
-            self.user_data[booth_number]['apply_online'] = apply_online
+        if applied_online is not None:
+            self.user_data[booth_number]['applied_online'] = applied_online
         if interested is not None:
             self.user_data[booth_number]['interested'] = interested
         if comments is not None:
@@ -209,7 +209,7 @@ class CareerFairPDFReader:
         return {
             'visited': data.get('visited', False),
             'resume_shared': data.get('resume_shared', False),
-            'apply_online': data.get('apply_online', False),
+            'applied_online': data.get('applied_online', False),
             'interested': data.get('interested', False),
             'comments': data.get('comments', ''),
             'visa_sponsor': data.get('visa_sponsor', '')
@@ -598,7 +598,7 @@ class CareerFairPDFReader:
                         'industry': industry,
                         'visited': user_interaction['visited'],
                         'resume_shared': user_interaction['resume_shared'],
-                        'apply_online': user_interaction['apply_online'],
+                        'applied_online': user_interaction['applied_online'],
                         'interested': user_interaction['interested'],
                         'comments': user_interaction['comments'],
                         'visa_sponsor': user_interaction['visa_sponsor'],
@@ -1404,7 +1404,7 @@ What color is the briefcase at booth {booth_number}? Respond with exactly one wo
                     'industry': industry,
                     'visited': user_interaction['visited'],
                     'resume_shared': user_interaction['resume_shared'],
-                    'apply_online': user_interaction['apply_online'],
+                    'applied_online': user_interaction['applied_online'],
                     'interested': user_interaction['interested'],
                     'comments': user_interaction['comments'],
                     'visa_sponsor': user_interaction['visa_sponsor'],
