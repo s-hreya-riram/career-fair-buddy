@@ -68,19 +68,18 @@ print(f"   - Current working directory: {os.getcwd()}")
 print(f"   - Environment variables containing 'OPENAI': {[k for k in os.environ.keys() if 'OPENAI' in k.upper()]}")
 
 class CareerFairPDFReader:
-    def __init__(self, pdf_path, user_id=None):
-        """Initialize the PDF reader with the path to the career fair PDF and optional user_id"""
+    def __init__(self, pdf_path):
+        """Initialize the PDF reader with the path to the career fair PDF"""
         self.pdf_path = Path(pdf_path)
         self.reader = None
         self.total_pages = 0
-        self.user_id = user_id or "default"  # Use provided user_id or default
         
         # Initialize OpenAI vision cache
         self.cache_file = Path("openai_vision_cache.json")
         self.vision_cache = self._load_cache()
         
-        # Initialize user data for tracking booth interactions (per user)
-        self.user_data_file = Path(f"user_interactions_{self.user_id}.json")
+        # Initialize single user data for tracking booth interactions
+        self.user_data_file = Path("user_interactions.json")
         self.user_data = self._load_user_data()
         
         if not self.pdf_path.exists():
@@ -174,7 +173,7 @@ class CareerFairPDFReader:
         if self.cache_file.exists():
             self.cache_file.unlink()
     
-    def update_user_interaction(self, booth_number, visited=None, resume_shared=None, apply_online=None, interested=None, comments=None):
+    def update_user_interaction(self, booth_number, visited=None, resume_shared=None, apply_online=None, interested=None, comments=None, visa_sponsor=None):
         """Update user interaction data for a specific booth"""
         if booth_number not in self.user_data:
             self.user_data[booth_number] = {
@@ -182,7 +181,8 @@ class CareerFairPDFReader:
                 'resume_shared': False,
                 'apply_online': False,
                 'interested': False,
-                'comments': ''
+                'comments': '',
+                'visa_sponsor': ''
             }
         
         # Update only the provided fields
@@ -196,6 +196,8 @@ class CareerFairPDFReader:
             self.user_data[booth_number]['interested'] = interested
         if comments is not None:
             self.user_data[booth_number]['comments'] = comments
+        if visa_sponsor is not None:
+            self.user_data[booth_number]['visa_sponsor'] = visa_sponsor
         
         self._save_user_data()
         return self.user_data[booth_number]
@@ -209,7 +211,8 @@ class CareerFairPDFReader:
             'resume_shared': data.get('resume_shared', False),
             'apply_online': data.get('apply_online', False),
             'interested': data.get('interested', False),
-            'comments': data.get('comments', '')
+            'comments': data.get('comments', ''),
+            'visa_sponsor': data.get('visa_sponsor', '')
         }
 
     def check_cache_completeness(self, venue_name=None):
@@ -598,6 +601,7 @@ class CareerFairPDFReader:
                         'apply_online': user_interaction['apply_online'],
                         'interested': user_interaction['interested'],
                         'comments': user_interaction['comments'],
+                        'visa_sponsor': user_interaction['visa_sponsor'],
                         'raw_text': data.get('raw_text', '')
                     })
             
@@ -1403,6 +1407,7 @@ What color is the briefcase at booth {booth_number}? Respond with exactly one wo
                     'apply_online': user_interaction['apply_online'],
                     'interested': user_interaction['interested'],
                     'comments': user_interaction['comments'],
+                    'visa_sponsor': user_interaction['visa_sponsor'],
                     'raw_text': f"Booth {booth_number}"  # Minimal placeholder
                 })
             

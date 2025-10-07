@@ -106,6 +106,7 @@ class CareerFairPDFReader:
                     'booth_number': booth_number,
                     'education_level': education_level,
                     'industry': industry,
+                    'website': website,
                     'visited': user_interaction['visited'],
                     'resume_shared': user_interaction['resume_shared'],
                     'apply_online': user_interaction['apply_online'],
@@ -169,6 +170,7 @@ class CareerFairPDFReader:
                 company_name = self.cache_manager.get_company_name(booth_number, page_num, is_day2) or "Unknown Company"
                 industry = self.cache_manager.get_industry(booth_number, page_num, is_day2) or "Unknown"
                 education_level = self.cache_manager.get_education_level(booth_number, page_num, is_day2) or "Unknown"
+                website = self.cache_manager.get_company_website(booth_number, page_num, is_day2) or ""
                 
                 # Get user interaction data
                 user_interaction = self.user_manager.get_interaction(booth_number)

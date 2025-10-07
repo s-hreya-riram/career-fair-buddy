@@ -136,22 +136,146 @@ class OpenAIService:
         page_num: int,
         is_day2: bool = False
     ) -> str:
-        """Analyze company website using OpenAI API"""
+        """Analyze company website using OpenAI API with manual fallback"""
         if not self.is_available():
-            return ""
+            # Use manual fallback if OpenAI is not available
+            return self._get_manual_company_website(company_name)
         
         # Check cache first
         cached = self.cache_manager.get_company_website(booth_number, page_num, is_day2)
         if cached:
             return cached
         
-        # Analyze with OpenAI
+        # Try manual database first (faster and more reliable)
+        manual_website = self._get_manual_company_website(company_name)
+        if manual_website:
+            self.cache_manager.set_company_website(booth_number, page_num, manual_website, is_day2)
+            self.cache_manager.save_cache()
+            return manual_website
+        
+        # Fall back to OpenAI analysis
         result = self._analyze_website_with_ai(company_name)
         
         # Cache the result (even if empty)
-        self.cache_manager.set_company_website(booth_number, page_num, result, is_day2)
+        self.cache_manager.set_company_website(booth_number, page_num, result or "", is_day2)
         self.cache_manager.save_cache()
         return result or ""
+    
+    def _get_manual_company_website(self, company_name: str) -> str:
+        """Get company website from manual database of common companies"""
+        # Normalize company name for matching
+        name_lower = company_name.lower().strip()
+        
+        # Manual database of common companies (Singapore focus)
+        company_websites = {
+            # Banks & Financial Services
+            'dbs': 'https://www.dbs.com.sg',
+            'dbs bank': 'https://www.dbs.com.sg',
+            'ocbc': 'https://www.ocbc.com',
+            'ocbc bank': 'https://www.ocbc.com',
+            'uob': 'https://www.uob.com.sg',
+            'maybank': 'https://www.maybank.com.sg',
+            'citi': 'https://www.citibank.com.sg',
+            'hsbc': 'https://www.hsbc.com.sg',
+            'standard chartered': 'https://www.sc.com/sg',
+            
+            # Government & Statutory Boards
+            'govtech': 'https://www.tech.gov.sg',
+            'gic': 'https://www.gic.com.sg',
+            'temasek': 'https://www.temasek.com.sg',
+            'cpf': 'https://www.cpf.gov.sg',
+            'hdb': 'https://www.hdb.gov.sg',
+            'iras': 'https://www.iras.gov.sg',
+            'mas': 'https://www.mas.gov.sg',
+            
+            # Tech Companies
+            'google': 'https://www.google.com',
+            'microsoft': 'https://www.microsoft.com',
+            'amazon': 'https://www.amazon.com',
+            'meta': 'https://www.meta.com',
+            'facebook': 'https://www.meta.com',
+            'apple': 'https://www.apple.com',
+            'netflix': 'https://www.netflix.com',
+            'salesforce': 'https://www.salesforce.com',
+            'shopee': 'https://shopee.sg',
+            'grab': 'https://www.grab.com',
+            'sea': 'https://www.sea.com',
+            'gojek': 'https://www.gojek.com',
+            'lazada': 'https://www.lazada.sg',
+            'bytedance': 'https://www.bytedance.com',
+            'tiktok': 'https://www.tiktok.com',
+            
+            # Consulting
+            'mckinsey': 'https://www.mckinsey.com',
+            'bain': 'https://www.bain.com',
+            'bcg': 'https://www.bcg.com',
+            'deloitte': 'https://www.deloitte.com',
+            'pwc': 'https://www.pwc.com',
+            'kpmg': 'https://www.kpmg.com',
+            'ey': 'https://www.ey.com',
+            'accenture': 'https://www.accenture.com',
+            
+            # Engineering & Manufacturing
+            'rolls royce': 'https://www.rolls-royce.com',
+            'siemens': 'https://www.siemens.com',
+            'schneider electric': 'https://www.schneider-electric.com',
+            'honeywell': 'https://www.honeywell.com',
+            'ge': 'https://www.ge.com',
+            'general electric': 'https://www.ge.com',
+            'abb': 'https://www.abb.com',
+            'bosch': 'https://www.bosch.com',
+            
+            # Oil & Gas
+            'shell': 'https://www.shell.com',
+            'exxonmobil': 'https://www.exxonmobil.com',
+            'chevron': 'https://www.chevron.com',
+            'bp': 'https://www.bp.com',
+            'total': 'https://www.totalenergies.com',
+            'schlumberger': 'https://www.slb.com',
+            'halliburton': 'https://www.halliburton.com',
+            
+            # Airlines
+            'singapore airlines': 'https://www.singaporeair.com',
+            'sia': 'https://www.singaporeair.com',
+            'scoot': 'https://www.flyscoot.com',
+            'jetstar': 'https://www.jetstar.com',
+            
+            # Telecommunications
+            'singtel': 'https://www.singtel.com',
+            'starhub': 'https://www.starhub.com',
+            'm1': 'https://www.m1.com.sg',
+            'circles.life': 'https://www.circles.life',
+            
+            # Healthcare & Pharma
+            'johnson & johnson': 'https://www.jnj.com',
+            'pfizer': 'https://www.pfizer.com',
+            'novartis': 'https://www.novartis.com',
+            'roche': 'https://www.roche.com',
+            'abbott': 'https://www.abbott.com',
+            
+            # Semiconductors
+            'globalfoundries': 'https://www.globalfoundries.com',
+            'micron': 'https://www.micron.com',
+            'applied materials': 'https://www.appliedmaterials.com',
+            'advanced semiconductor engineering': 'https://www.aseglobal.com',
+            
+            # Real Estate
+            'capitaland': 'https://www.capitaland.com',
+            'city developments': 'https://www.cdl.com.sg',
+            'uol': 'https://www.uol.com.sg',
+            'far east organization': 'https://www.fareast.com.sg',
+        }
+        
+        # Try exact match first
+        if name_lower in company_websites:
+            return company_websites[name_lower]
+        
+        # Try partial matches
+        for key, website in company_websites.items():
+            if key in name_lower or name_lower in key:
+                return website
+        
+        return ""
     
     def _analyze_education_with_vision(self, booth_number: str, page_num: int, pdf_path: str) -> Optional[str]:
         """Analyze education level using OpenAI vision with retry logic"""

@@ -3,14 +3,14 @@
     "visited": false,
     "resume_shared": false,
     "apply_online": false,
-    "comments": "TODO research about this company",
+    "comments": "Not relevant for my background",
     "interested": false
   },
   "A02": {
     "visited": false,
     "resume_shared": false,
     "apply_online": false,
-    "comments": "Need to apply online by next Friday.",
+    "comments": "Not relevant for my background",
     "interested": false
   },
   "A03": {
@@ -18,7 +18,7 @@
     "resume_shared": false,
     "apply_online": false,
     "interested": false,
-    "comments": ""
+    "comments": "Senior Consultant/Project Manager could be relevant but I am still overqualified."
   },
   "A04": {
     "visited": false,
@@ -26,5 +26,13 @@
     "apply_online": false,
     "interested": false,
     "comments": ""
+  },
+  "A06": {
+    "visited": false,
+    "resume_shared": false,
+    "apply_online": false,
+    "interested": false,
+    "comments": "Not relevant for my background",
+    "visa_sponsor": ""
   }
 }

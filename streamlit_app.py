@@ -205,102 +205,7 @@ class CareerFairApp:
         """Initialize the Career Fair Streamlit App"""
         self.pdf_path = "data/nus-career-fest-2025-student-event-guide-ay2526-sem-1.pdf"
         self.pdf_reader = None
-        self.user_id = self.setup_user_id()
         self.init_pdf_reader()
-    
-    def setup_user_id(self):
-        """Setup user ID system for multi-user support"""
-        import uuid
-        
-        # Check if user already has an ID in session state
-        if 'user_id' not in st.session_state:
-            st.session_state.user_id = None
-        
-        # User ID input section
-        with st.sidebar:
-            st.markdown("---")
-            st.subheader("👤 Your Profile")
-            
-            # Show current user ID if exists
-            if st.session_state.user_id:
-                st.success(f"🔑 Your ID: **{st.session_state.user_id}**")
-                st.caption("💾 Save this ID to access your data from any device")
-                
-                # Option to change user ID
-                if st.button("🔄 Change User ID"):
-                    st.session_state.user_id = None
-                    st.rerun()
-            else:
-                # New user setup
-                st.info("🆕 Set up your profile to track your career fair progress")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    if st.button("🎲 Generate New ID", help="Get a unique 8-character ID"):
-                        new_id = str(uuid.uuid4())[:8].upper()
-                        st.session_state.user_id = new_id
-                        st.success(f"🎉 Your new ID: **{new_id}**")
-                        st.caption("💾 Save this ID to access your data from other devices!")
-                        st.rerun()
-                
-                with col2:
-                    # Manual ID entry
-                    manual_id = st.text_input(
-                        "🔑 Enter Existing ID", 
-                        placeholder="A1B2C3D4",
-                        max_chars=8,
-                        help="Enter your 8-character ID from another device"
-                    )
-                    if manual_id and len(manual_id.strip()) >= 4:
-                        if st.button("✅ Use This ID"):
-                            st.session_state.user_id = manual_id.strip().upper()
-                            st.success(f"✅ Using ID: **{st.session_state.user_id}**")
-                            st.rerun()
-            
-            # User data management (only show if user has an ID)
-            if st.session_state.user_id:
-                st.markdown("---")
-                st.caption("📊 **Data Management**")
-                
-                # Show user statistics
-                try:
-                    if hasattr(self, 'pdf_reader') and self.pdf_reader:
-                        user_data = self.pdf_reader.user_data
-                        visited_count = sum(1 for data in user_data.values() if data.get('visited', False))
-                        interested_count = sum(1 for data in user_data.values() if data.get('interested', False))
-                        total_companies = len(user_data)
-                        
-                        if total_companies > 0:
-                            st.metric("📍 Companies Visited", visited_count)
-                            st.metric("❤️ Companies Interested", interested_count)
-                        else:
-                            st.caption("No activity yet - start exploring companies!")
-                except:
-                    pass
-                
-                # Export data option
-                if st.button("📥 Export My Data", help="Download your career fair progress as CSV"):
-                    self.export_user_data()
-            
-            # System metrics (show for all users)
-            st.markdown("---")
-            st.caption("📊 **System Stats**")
-            try:
-                metrics = self.get_system_metrics()
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("👥 Active Users", metrics['total_users'])
-                with col2:
-                    st.metric("💾 Storage", f"{metrics['storage_mb']:.1f}MB")
-                
-                if metrics['total_users'] > 20000:
-                    st.warning("⚠️ High user load - performance may be affected")
-                
-            except Exception as e:
-                st.caption("Stats unavailable")
-        
-        return st.session_state.user_id or "GUEST"
     
     def get_system_metrics(self):
         """Get system usage metrics for monitoring scaling"""
@@ -408,16 +313,15 @@ class CareerFairApp:
                     st.write("Data directory does not exist")
                 
                 st.stop()
-            
-            # Try to initialize the PDF reader with user ID
-            self.pdf_reader = CareerFairPDFReader(self.pdf_path, self.user_id)
+            # Try to initialize the PDF reader
+            self.pdf_reader = CareerFairPDFReader(self.pdf_path)
             
             # Validate that the PDF reader is working
             if hasattr(self.pdf_reader, 'get_venue_companies'):
                 # Test with a simple venue call
                 try:
                     test_companies = self.pdf_reader.get_venue_companies("Test")
-                    st.success(f"✅ PDF reader initialized successfully. File size: {os.path.getsize(self.pdf_path)} bytes")
+                    #st.success(f"✅ PDF reader initialized successfully. File size: {os.path.getsize(self.pdf_path)} bytes")
                 except Exception as test_error:
                     st.warning(f"⚠️ PDF reader initialized but may have issues: {str(test_error)}")
             else:
@@ -462,11 +366,11 @@ class CareerFairApp:
             st.divider()
             st.markdown("### 📱 Layout")
             
-            # Show auto-detection message if it exists
-            if 'auto_detection_message' in st.session_state:
-                st.success(st.session_state.auto_detection_message)
-                # Clear the message after showing it once
-                del st.session_state.auto_detection_message
+            # Show auto-detection message if it exists - commented out for cleaner UI
+            # if 'auto_detection_message' in st.session_state:
+            #     st.success(st.session_state.auto_detection_message)
+            #     # Clear the message after showing it once
+            #     del st.session_state.auto_detection_message
             
             mobile_override = st.toggle(
                 "Mobile Mode", 
@@ -477,10 +381,11 @@ class CareerFairApp:
             
             if mobile_override != st.session_state.get('mobile_override', False):
                 st.session_state.mobile_override = mobile_override
-                if mobile_override:
-                    st.success("📱 Mobile layout enabled!")
-                else:
-                    st.success("💻 Desktop layout enabled!")
+                # Commented out for cleaner UI
+                # if mobile_override:
+                #     st.success("📱 Mobile layout enabled!")
+                # else:
+                #     st.success("💻 Desktop layout enabled!")
                 st.rerun()
     
     def _auto_detect_mobile(self):
@@ -1036,6 +941,17 @@ class CareerFairApp:
                                 self.pdf_reader.update_user_interaction(booth_number, apply_online=apply_online)
                                 st.rerun()
                         
+                    # Visa sponsorship text input
+                    visa_sponsor = st.text_input(
+                        "🛂 Visa Sponsorship", 
+                        value=company.get('visa_sponsor', ''),
+                        placeholder="e.g., Yes for H1B, No sponsorship, Only for citizens, etc.",
+                        key=f"visa_{booth_number}_{unique_key_suffix}_{i}",
+                        help="Enter visa sponsorship information if available"
+                    )
+                    if visa_sponsor != company.get('visa_sponsor', ''):
+                        self.pdf_reader.update_user_interaction(booth_number, visa_sponsor=visa_sponsor)
+
                         # Comments section - full width
                         current_comments = company.get('comments', '')
                         new_comments = st.text_input(
@@ -1715,17 +1631,18 @@ class CareerFairApp:
         st.title("🎯 NUS Career Fair 2025 - Student Guide")
         st.markdown("**October 8-9, 2025** | Stephen Riady Centre & Engineering Auditorium")
         
-        # User ID status display
-        if self.user_id != "GUEST":
-            st.info(f"👤 **Your Profile ID:** `{self.user_id}` | 💾 Your progress is saved across all devices!")
-        else:
-            st.warning("⚠️ **Guest Mode:** Your progress won't be saved. Set up your profile in the sidebar to track your career fair progress!")
+        # User ID status display - commented out for cleaner UI
+        # if self.user_id != "GUEST":
+        #     st.info(f"👤 **Your Profile ID:** `{self.user_id}` | 💾 Your progress is saved across all devices!")
+        # else:
+        #     st.warning("⚠️ **Guest Mode:** Your progress won't be saved. Set up your profile in the sidebar to track your career fair progress!")
         
         # Add OpenAI status indicator at the top
         try:
             import app
             if app.OPENAI_AVAILABLE:
-                st.success("🤖 AI Features Available: Company analysis, industry extraction, and resume matching are fully functional!")
+                # Success message commented out for cleaner UI
+                pass
             else:
                 st.warning("⚠️ AI Features Limited: OpenAI API is not available. Some features like industry extraction and resume matching may show 'Unknown' results.")
                 

@@ -54,13 +54,31 @@ class CareerFairApp:
         # Display user ID in sidebar
         with st.sidebar:
             st.write("### 👤 User Profile")
-            st.write(f"**User ID:** `{st.session_state.user_id}`")
+            st.write(f"**Current User ID:** `{st.session_state.user_id}`")
             st.caption("Your unique ID for this session. Data is saved automatically.")
             
-            # Add option to generate new user ID
-            if st.button("🔄 Generate New User ID", help="Get a new unique identifier"):
-                st.session_state.user_id = UserManager.generate_user_id()
-                st.rerun()
+            # Add manual user ID input
+            manual_id = st.text_input(
+                "Enter 8-digit User ID",
+                value="",
+                max_chars=8,
+                placeholder="12345678",
+                help="Enter your own 8-digit ID or generate a new random one"
+            )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔄 Generate New", help="Get a new random 8-digit ID"):
+                    st.session_state.user_id = UserManager.generate_user_id()
+                    st.rerun()
+            
+            with col2:
+                if st.button("✅ Use Manual", help="Use the ID you entered above"):
+                    if manual_id and len(manual_id) == 8 and manual_id.isdigit():
+                        st.session_state.user_id = manual_id
+                        st.rerun()
+                    else:
+                        st.error("Please enter exactly 8 digits")
             
             # System metrics
             self.display_system_metrics()
@@ -179,7 +197,7 @@ class CareerFairApp:
                 st.info(f"Showing {len(filtered_companies)} of {len(companies)} companies")
             
             # Display companies
-            self.display_company_list(filtered_companies)
+            self.display_company_list(filtered_companies, venue_name)
             
         except Exception as e:
             st.error(f"Error loading companies: {e}")
@@ -208,7 +226,7 @@ class CareerFairApp:
         
         return filtered
     
-    def display_company_list(self, companies: list):
+    def display_company_list(self, companies: list, venue_name: str = ""):
         """Display list of companies with interaction tracking"""
         if not companies:
             st.warning("No companies found matching your criteria.")
@@ -246,12 +264,21 @@ class CareerFairApp:
             col_idx = i % len(cols)
             
             with cols[col_idx]:
-                self.display_company_card(company)
+                self.display_company_card(company, venue_name)
     
-    def display_company_card(self, company: dict):
+    def display_company_card(self, company: dict, venue_name: str = ""):
         """Display individual company card with interactions"""
         # Create a container with consistent styling
         with st.container():
+            # Get website URL if available
+            website = company.get('website', '')
+            
+            # Create clickable company name if website exists
+            if website and website.startswith(('http://', 'https://')):
+                company_display = f'<a href="{website}" target="_blank" style="color: #495057; text-decoration: none; hover: underline;">🏢 {company["name"]} 🔗</a>'
+            else:
+                company_display = f'🏢 {company["name"]}'
+            
             # Company header with consistent layout
             st.markdown(f"""
             <div style="
@@ -261,7 +288,7 @@ class CareerFairApp:
                 border-left: 4px solid #007bff;
                 margin-bottom: 0.5rem;
             ">
-                <h4 style="margin: 0; color: #495057;">🏢 {company['name']}</h4>
+                <h4 style="margin: 0; color: #495057;">{company_display}</h4>
                 <p style="margin: 0; color: #6c757d;">📍 Booth {company['booth_number']}</p>
             </div>
             """, unsafe_allow_html=True)
@@ -277,6 +304,9 @@ class CareerFairApp:
             st.markdown("**Track Your Interactions:**")
             
             booth_number = company['booth_number']
+            # Create unique keys by including venue name
+            venue_key = venue_name.replace(" ", "_").replace("-", "_")
+            unique_key_base = f"{booth_number}_{venue_key}"
             
             # First row of interactions
             inter_col1, inter_col2 = st.columns(2)
@@ -285,33 +315,33 @@ class CareerFairApp:
                 visited = st.checkbox(
                     "✅ Visited", 
                     value=company['visited'],
-                    key=f"visited_{booth_number}"
+                    key=f"visited_{unique_key_base}"
                 )
                 
                 resume_shared = st.checkbox(
                     "📄 Resume Shared", 
                     value=company['resume_shared'],
-                    key=f"resume_{booth_number}"
+                    key=f"resume_{unique_key_base}"
                 )
             
             with inter_col2:
                 interested = st.checkbox(
                     "⭐ Interested", 
                     value=company['interested'],
-                    key=f"interested_{booth_number}"
+                    key=f"interested_{unique_key_base}"
                 )
                 
                 apply_online = st.checkbox(
                     "🌐 Applied Online", 
                     value=company['apply_online'],
-                    key=f"apply_{booth_number}"
+                    key=f"apply_{unique_key_base}"
                 )
             
             # Comments section with consistent height
             comments = st.text_area(
                 "💭 Notes & Comments",
                 value=company['comments'],
-                key=f"comments_{booth_number}",
+                key=f"comments_{unique_key_base}",
                 height=80,
                 placeholder="Add your notes about this company..."
             )
